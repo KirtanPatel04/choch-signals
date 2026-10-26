@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trade Journal</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📓</text></svg>">
+<style>
+:root { --bg: #0b0e14; --panel: #131824; --line: #232a3a; --text: #e6e9ef; --muted: #8b93a7; --up: #26a69a; --down: #ef5350; --accent: #4f9de0; }
+:root[data-theme="light"] { --bg: #f6f7f9; --panel: #fff; --line: #e1e4ea; --text: #161a22; --muted: #5c6577; --up: #128a7e; --down: #d63c3a; --accent: #2d74b8; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; padding: 16px; border-bottom: 1px solid var(--line); }
+header h1 { margin: 0; font-size: 18px; }
+nav a { color: var(--muted); text-decoration: none; margin-left: 14px; } nav a.on, nav a:hover { color: var(--text); }
+main { max-width: 1150px; margin: 0 auto; padding: 16px; }
+h2 { font-size: 15px; margin: 22px 0 8px; }
+.note { color: var(--muted); font-size: 12.5px; }
+form { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+form label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: 12.5px; }
+form .wide { grid-column: 1 / -1; }
+input, select, textarea, button { background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 7px 8px; font: inherit; }
+button { cursor: pointer; background: var(--panel); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.tile { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.tile b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
+.tile span { color: var(--muted); font-size: 12.5px; }
+.wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+th { color: var(--muted); font-weight: 600; font-size: 12.5px; }
+td.l, th.l { text-align: left; } td.notes { text-align: left; white-space: normal; min-width: 180px; color: var(--muted); }
+.pos { color: var(--up); } .neg { color: var(--down); }
+.x { border: 0; background: none; color: var(--muted); padding: 2px 6px; }
+.empty { color: var(--muted); padding: 18px; text-align: center; border: 1px dashed var(--line); border-radius: 10px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Trade Journal</h1>
+  <nav><a href="./">Signals</a><a href="journal.html" class="on">Journal</a><a href="#" id="theme">Theme</a></nav>
+</header>
+<main>
+  <p class="note">Log every trade, including your own picks the indicator didn't mark ("Own"). After 50-100 trades the table below shows whether each kind actually makes money. Trades are saved in this browser only. Use <b>Export CSV</b> to back up or move them to another device.</p>
+
+  <h2>Add a trade</h2>
+  <form id="f">
+    <label>Date <input name="date" type="date" required></label>
+    <label>Market <select name="market"><option>MES</option><option>MYM</option><option>MNQ</option><option>ES</option><option>SOLUSD</option><option>Other</option></select></label>
+    <label>Grade <select name="grade"><option>A+</option><option>A</option><option>B</option><option>Own</option></select></label>
+    <label>Session <select name="session"><option>NY</option><option>Asia</option><option>London</option></select></label>
+    <label>Side <select name="side"><option>BUY</option><option>SELL</option></select></label>
+    <label>Entry <input name="entry" type="number" step="any" required></label>
+    <label>Stop <input name="stop" type="number" step="any" required></label>
+    <label>Exit <input name="exit" type="number" step="any" required></label>
+    <label>Contracts / size <input name="qty" type="number" step="any" value="1" required></label>
+    <label>$ per point <input name="pv" type="number" step="any" value="5" title="MES 5, MYM 0.5, MNQ 2, ES 50, SOL 1 per coin"></label>
+    <label>Fees $ <input name="fees" type="number" step="any" value="0"></label>
+    <label>Followed the plan? <select name="plan"><option>Yes</option><option>No</option></select></label>
+    <label class="wide">Notes (why you took it, what you saw) <textarea name="notes" rows="2"></textarea></label>
+    <div class="row wide"><button class="primary" type="submit">Add trade</button><span class="note" id="preview"></span></div>
+  </form>
+
+  <h2>Summary</h2>
+  <div class="tiles" id="tiles"></div>
+
+  <h2>By grade</h2>
+  <div class="wrap"><table id="byg"><thead><tr><th class="l">Grade</th><th>Trades</th><th>Win %</th><th>Avg R</th><th>Net R</th><th>Net $</th></tr></thead><tbody></tbody></table></div>
+
+  <h2>Trades</h2>
+  <div class="row" style="margin-bottom:8px">
+    <button id="exp">Export CSV</button>
+    <label class="row"><button type="button" id="impb">Import CSV</button><input id="imp" type="file" accept=".csv" hidden></label>
+  </div>
+  <div class="wrap"><table id="list"><thead><tr>
+    <th class="l">Date</th><th class="l">Market</th><th class="l">Grade</th><th class="l">Side</th><th>Entry</th><th>Stop</th><th>Exit</th><th>Size</th><th>R</th><th>$</th><th class="l">Plan</th><th class="l">Notes</th><th></th>
+  </tr></thead><tbody></tbody></table></div>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+const KEY = "journal_v1";
+const PV = { MES: 5, MYM: 0.5, MNQ: 2, ES: 50, SOLUSD: 1 };
+const FIELDS = ["date", "market", "grade", "session", "side", "entry", "stop", "exit", "qty", "pv", "fees", "plan", "notes"];
+const store = { get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+const t0 = store.get("theme", ""); if (t0) document.documentElement.dataset.theme = t0;
+$("#theme").onclick = e => { e.preventDefault(); const t = document.documentElement.dataset.theme === "light" ? "dark" : "light"; document.documentElement.dataset.theme = t; store.set("theme", t); };
+
+let trades = []; try { trades = JSON.parse(store.get(KEY, "[]")) || []; } catch { trades = []; }
+const save = () => store.set(KEY, JSON.stringify(trades));
+const f = $("#f");
+f.date.valueAsDate = new Date();
+f.market.onchange = () => { if (PV[f.market.value]) f.pv.value = PV[f.market.value]; };
+
+function calc(t) {
+  const dir = t.side === "BUY" ? 1 : -1, risk = Math.abs(+t.entry - +t.stop);
+  const pts = (+t.exit - +t.entry) * dir;
+  const usd = pts * (+t.pv || 0) * (+t.qty || 0) - (+t.fees || 0);
+  return { r: risk > 0 ? pts / risk : 0, usd };
+}
+const money = v => (v >= 0 ? "+$" : "-$") + Math.abs(v).toLocaleString(undefined, { maximumFractionDigits: 0 });
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+f.oninput = () => {
+  const t = Object.fromEntries(new FormData(f));
+  if (t.entry && t.stop && t.exit) { const c = calc(t); $("#preview").innerHTML = `This trade: <b class="${c.r >= 0 ? "pos" : "neg"}">${c.r.toFixed(2)}R, ${money(c.usd)}</b>`; }
+};
+f.onsubmit = e => {
+  e.preventDefault();
+  trades.push({ id: Date.now(), ...Object.fromEntries(new FormData(f)) });
+  save(); render();
+  ["entry", "stop", "exit", "notes"].forEach(k => f[k].value = ""); $("#preview").textContent = "";
+};
+
+function group(list) {
+  const c = list.map(calc), n = c.length, wins = c.filter(x => x.r > 0.05).length;
+  const netR = c.reduce((a, x) => a + x.r, 0), usd = c.reduce((a, x) => a + x.usd, 0);
+  return { n, win: n ? wins / n : 0, avgR: n ? netR / n : 0, netR, usd };
+}
+function render() {
+  const all = group(trades), planNo = group(trades.filter(t => t.plan === "No"));
+  $("#tiles").innerHTML = [
+    ["Trades", all.n], ["Win rate", Math.round(all.win * 100) + "%"],
+    ["Avg R / trade", `<span class="${all.avgR >= 0 ? "pos" : "neg"}">${all.avgR.toFixed(2)}</span>`],
+    ["Net R", `<span class="${all.netR >= 0 ? "pos" : "neg"}">${all.netR.toFixed(1)}</span>`],
+    ["Net $", `<span class="${all.usd >= 0 ? "pos" : "neg"}">${money(all.usd)}</span>`],
+    ["Off-plan trades", `${planNo.n} <small class="${planNo.usd >= 0 ? "pos" : "neg"}">${planNo.n ? money(planNo.usd) : ""}</small>`],
+  ].map(([k, v]) => `<div class="tile"><span>${k}</span><b>${v}</b></div>`).join("");
+  $("#byg tbody").innerHTML = ["A+", "A", "B", "Own"].map(g => {
+    const x = group(trades.filter(t => t.grade === g));
+    return `<tr><td class="l">${g}</td><td>${x.n}</td><td>${x.n ? Math.round(x.win * 100) + "%" : "-"}</td>
+      <td class="${x.avgR >= 0 ? "pos" : "neg"}">${x.n ? x.avgR.toFixed(2) : "-"}</td><td class="${x.netR >= 0 ? "pos" : "neg"}">${x.netR.toFixed(1)}</td>
+      <td class="${x.usd >= 0 ? "pos" : "neg"}">${money(x.usd)}</td></tr>`;
+  }).join("");
+  const rows = [...trades].sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.id - a.id);
+  $("#list tbody").innerHTML = rows.length ? rows.map(t => {
+    const c = calc(t);
+    return `<tr><td class="l">${esc(t.date)}</td><td class="l">${esc(t.market)}</td><td class="l">${esc(t.grade)}</td><td class="l">${esc(t.side)}</td>
+      <td>${esc(t.entry)}</td><td>${esc(t.stop)}</td><td>${esc(t.exit)}</td><td>${esc(t.qty)}</td>
+      <td class="${c.r >= 0 ? "pos" : "neg"}">${c.r.toFixed(2)}</td><td class="${c.usd >= 0 ? "pos" : "neg"}">${money(c.usd)}</td>
+      <td class="l">${esc(t.plan)}</td><td class="notes">${esc(t.notes)}</td><td><button class="x" data-id="${t.id}" title="Delete">✕</button></td></tr>`;
+  }).join("") : `<tr><td colspan="13"><div class="empty">No trades yet.</div></td></tr>`;
+}
+$("#list").onclick = e => {
+  const id = e.target.dataset?.id; if (!id) return;
+  if (confirm("Delete this trade?")) { trades = trades.filter(t => String(t.id) !== id); save(); render(); }
+};
+$("#exp").onclick = () => {
+  const q = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const csv = [FIELDS.concat(["r", "usd"]).join(",")].concat(trades.map(t => { const c = calc(t); return FIELDS.map(k => q(t[k])).concat([c.r.toFixed(3), c.usd.toFixed(2)]).join(","); })).join("\n");
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); a.download = "trade-journal.csv"; a.click();
+};
+$("#impb").onclick = () => $("#imp").click();
+$("#imp").onchange = async e => {
+  const file = e.target.files[0]; if (!file) return;
+  const lines = (await file.text()).trim().split(/\r?\n/), head = parseRow(lines.shift());
+  const added = lines.map(parseRow).map((cells, i) => { const t = { id: Date.now() + i }; head.forEach((h, j) => { if (FIELDS.includes(h)) t[h] = cells[j]; }); return t; });
+  trades = trades.concat(added); save(); render(); alert(`Imported ${added.length} trades.`); e.target.value = "";
+};
+function parseRow(line) {
+  const out = []; let cur = "", q = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (q) { if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; } else if (ch === '"') q = false; else cur += ch; }
+    else if (ch === '"') q = true; else if (ch === ",") { out.push(cur); cur = ""; } else cur += ch;
+  }
+  out.push(cur); return out;
+}
+render();
+</script>
+</body>
+</html>

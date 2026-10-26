@@ -1,0 +1,53 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Backtest: CHoCH scalp (default)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/run.py",
+      "args": ["--strategy", "choch_scalp"],
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Backtest: 15M FVG scalp",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/run.py",
+      "args": ["--strategy", "fvg_scalp"],
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Backtest: test all variations",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/run.py",
+      "args": ["--sweep"],
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Backtest: CHoCH scalp, 1D bias, 3R fixed",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/run.py",
+      "args": ["--strategy", "choch_scalp", "--bias", "--exit", "fixed", "--r", "3"],
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Backtest: opening range breakout",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/run.py",
+      "args": ["--strategy", "orb", "--r", "2"],
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Backtest: my_strategy (your own)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/run.py",
+      "args": ["--strategy", "my_strategy"],
+      "console": "integratedTerminal"
+    }
+  ]
+}

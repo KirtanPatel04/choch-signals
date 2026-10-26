@@ -1,0 +1,329 @@
+//@version=6
+// MES CHoCH Setups
+// Shows graded BUY / SELL signals (A+, A, B) on a 1, 5 or 15-minute chart when the setup forms:
+//   price pushes into a higher-timeframe swing level -> strong change of character on the chart's
+//   candles -> limit entry at the fair-value gap it leaves.
+// A+ = the traits that separated winners from losers in 1M testing (Sep 27 - Oct 23, 2026):
+//   a strong change-of-character candle, at a higher-timeframe swing level, NOT at the previous
+//   day's high/low, in the direction of the higher-timeframe trend.
+// Settings by chart timeframe (set automatically):
+//   1M:  15M levels + 15M trend, touch within 1 pt, CHoCH body >= 1.5x avg range, push within 20 bars
+//   5M:  15M levels + 15M trend, touch within 3 pts, CHoCH body >= 1.0x, push within 6 bars
+//   15M: 1H levels + 1H trend, touch within 4 pts, CHoCH body >= 1.0x, push within 4 bars
+// Only the 1M settings come from the full backtest. The 5M and 15M settings had very few
+// trades in that month (about 11 and 4), so treat their signals as untested.
+// Grades (1M chart; same setup, graded by how strong the CHoCH candle is vs the 30-candle average range):
+//   A+ >= 1.5x   A 1.2x - 1.5x   B 1.0x - 1.2x
+//   MES NY session Sep 27 - Oct 26 (each signal on its own, 2R): A+ +0.17R/trade, A +0.30R, B -0.04R.
+//   On 5M/15M only A+ is shown.
+// Each signal is a small marker ("A+", "A", "B" with an arrow); hover it for limit / stop / target.
+// Levels and trend are only used for the signal and are not drawn.
+// Real changes of character (structure flipping from down to up or up to down, using swings with
+// several candles on each side) are marked with a "CHoCH" line (can be turned off).
+// Each signal is followed to its real result with the backtest's rules (limit fill, stop or target,
+// 'no fill' if the limit is never reached, closed at 15:40 CT). The stop/target boxes stop where the
+// trade ended, and a table shows the totals for every signal on the chart.
+// Works on MES, ES, MNQ/NQ, MYM/YM and M2K/RTY; point settings are scaled to each market's candle size.
+// Only closed candles are used, so signals do not repaint. This never places orders.
+indicator("MES CHoCH Setups", shorttitle="CHoCH A+/A/B", overlay=true, max_lines_count=500, max_boxes_count=500, max_labels_count=500, max_bars_back=200)
+
+// ---------------------------------------------------------------- per-timeframe settings
+tfSec = timeframe.in_seconds()
+tfIdx = tfSec < 300 ? 0 : tfSec < 900 ? 1 : 2      // 0 = 1M, 1 = 5M, 2 = 15M
+htf   = tfIdx == 2 ? "60" : "15"                   // timeframe for levels and trend
+
+// ---------------------------------------------------------------- inputs
+sigSess = input.session("0830-1500", "Signal hours (Chicago time)", tooltip="Same entry window as the backtest.")
+grades  = input.string("A+, A and B", "Grades to show", options=["A+ only", "A+ and A", "A+, A and B"], tooltip="1M chart. A+ = CHoCH candle >= 1.5x the average range, A = 1.2-1.5x, B = 1.0-1.2x. Everything else is the same setup.")
+showRR  = input.bool(true, "Draw entry / stop / target lines", tooltip="Thin lines that stop where the trade ended.")
+showPx  = input.bool(false, "Write prices on the marker", tooltip="Off = small marker only; hover it to see limit, stop and target.")
+showCh  = input.bool(true, "Draw CHoCH lines", tooltip="Line from the swing to the candle that closed through it, only when structure flips (downtrend -> up or uptrend -> down).")
+chLenIn = input.int(0, "CHoCH swing size (candles each side, 0 = auto)", minval=0, maxval=50, tooltip="Bigger = fewer, more important swings. Auto: 10 on 1M, 5 on 5M, 3 on 15M.")
+rrBox   = input.float(2.0, "Target (R)", minval=0.5, tooltip="2R tested best.")
+maxWait = input.int(10, "Cancel limit if not filled after (bars)", minval=1, tooltip="Same as the backtest: the limit order is cancelled after 10 candles.")
+riskUsd = input.float(100, "Risk per trade ($) for the results table", minval=1)
+showTbl = input.bool(true, "Show results table")
+minStop = input.float(2.0, "Min stop (MES pts)", minval=0, tooltip="Scaled automatically on other markets.")
+ptScIn  = input.float(0, "Point scale vs MES (0 = auto)", minval=0, tooltip="Auto: MES/ES 1, MNQ/NQ 5.5, MYM/YM 6, M2K/RTY 0.44. These come from the size of a typical 1-minute candle compared with MES.")
+
+// the settings are in MES points; other markets move more or fewer points per candle
+root    = syminfo.root
+ptScale = ptScIn > 0 ? ptScIn : (root == "NQ" or root == "MNQ") ? 5.5 : (root == "YM" or root == "MYM") ? 6.0 : (root == "RTY" or root == "M2K") ? 0.44 : 1.0
+minDisp   = tfIdx == 0 ? 1.5 : 1.0                  // CHoCH candle body vs the average range (A+)
+aDisp     = tfIdx == 0 and grades != "A+ only" ? 1.2 : minDisp        // A: weaker candle, everything else the same
+bDisp     = tfIdx == 0 and grades == "A+, A and B" ? 1.0 : aDisp      // B
+nearPts   = (tfIdx == 0 ? 1.0 : tfIdx == 1 ? 3.0 : 4.0) * ptScale   // "at the level" = within this many points
+sweepBars = tfIdx == 0 ? 20 : tfIdx == 1 ? 6 : 4   // bars back to find the push into a level
+lookDays  = 3
+
+// ---------------------------------------------------------------- higher-timeframe data (closed candles only)
+[pdh, pdl] = request.security(syminfo.tickerid, "D", [high[1], low[1]], lookahead=barmerge.lookahead_on)
+
+// swing high/low of the candle two back, confirmed by the candle one back
+f_piv() =>
+    float ph = high[2] > high[3] and high[2] > high[1] ? high[2] : na
+    float pl = low[2] < low[3] and low[2] < low[1] ? low[2] : na
+    [ph, pl]
+[phH, plH] = request.security(syminfo.tickerid, htf, f_piv(), lookahead=barmerge.lookahead_on)
+
+// 15M market structure: bullish after a close above the latest swing high, bearish after a close below the latest swing low
+f_struct() =>
+    var int st = 0
+    var float sh = na
+    var float sl = na
+    if high[1] > high[2] and high[1] >= high
+        sh := high[1]
+    if low[1] < low[2] and low[1] <= low
+        sl := low[1]
+    if not na(sh) and close > sh
+        st := 1
+    else if not na(sl) and close < sl
+        st := -1
+    st[1]
+trd = request.security(syminfo.tickerid, htf, f_struct(), lookahead=barmerge.lookahead_on)
+
+// ---------------------------------------------------------------- key levels (not drawn)
+// kind: 1 = higher-timeframe swing, 2 = prev day high/low
+var lvPx   = array.new_float()
+var lvKind = array.new_int()
+var lvT    = array.new_int()
+f_add(float px, int kind) =>
+    if not na(px)
+        array.push(lvPx, px)
+        array.push(lvKind, kind)
+        array.push(lvT, time)
+
+if timeframe.change(htf)
+    f_add(phH, 1)
+    f_add(plH, 1)
+if timeframe.change("D")
+    f_add(pdh, 2)
+    f_add(pdl, 2)
+
+lookMs = lookDays * 86400000
+while array.size(lvT) > 0 and time - array.get(lvT, 0) > lookMs + 86400000
+    array.shift(lvPx)
+    array.shift(lvKind)
+    array.shift(lvT)
+
+// ---------------------------------------------------------------- change of character + fair-value gap on the chart's candles
+var float swHi = na
+var float swLo = na
+if high[1] > high[2] and high[1] >= high
+    swHi := high[1]
+if low[1] < low[2] and low[1] <= low
+    swLo := low[1]
+
+// ---------------------------------------------------------------- CHoCH lines (market structure, drawn only)
+// Swings = pivots with chLen candles on each side. Structure is bearish after a close below the last
+// swing low and bullish after a close above the last swing high. A CHoCH is the first close that breaks
+// structure the OTHER way (e.g. in a downtrend, a close above the last lower high). Breaks in the same
+// direction (BOS) are not drawn.
+chLen = chLenIn > 0 ? chLenIn : tfIdx == 0 ? 10 : tfIdx == 1 ? 5 : 3
+ph = ta.pivothigh(high, chLen, chLen)
+pl = ta.pivotlow(low, chLen, chLen)
+var float cHi     = na
+var float cLo     = na
+var int   cHiBar  = na
+var int   cLoBar  = na
+var bool  cHiUsed = false
+var bool  cLoUsed = false
+var int   msTrend = 0        // +1 bullish structure, -1 bearish
+if not na(ph)
+    cHi     := ph
+    cHiBar  := bar_index - chLen
+    cHiUsed := false
+if not na(pl)
+    cLo     := pl
+    cLoBar  := bar_index - chLen
+    cLoUsed := false
+if barstate.isconfirmed
+    if not na(cHi) and not cHiUsed and close > cHi
+        cHiUsed := true
+        if msTrend == -1 and showCh
+            line.new(cHiBar, cHi, bar_index, cHi, color=color.teal, width=2)
+            label.new(math.round((cHiBar + bar_index) / 2), cHi, "CHoCH", style=label.style_label_down, color=color.new(color.white, 100), textcolor=color.teal, size=size.normal)
+        msTrend := 1
+    else if not na(cLo) and not cLoUsed and close < cLo
+        cLoUsed := true
+        if msTrend == 1 and showCh
+            line.new(cLoBar, cLo, bar_index, cLo, color=color.red, width=2)
+            label.new(math.round((cLoBar + bar_index) / 2), cLo, "CHoCH", style=label.style_label_up, color=color.new(color.white, 100), textcolor=color.red, size=size.normal)
+        msTrend := -1
+
+avgRng = ta.sma(high - low, 30)[1]
+loOff  = -ta.lowestbars(low, sweepBars + 1)
+hiOff  = -ta.highestbars(high, sweepBars + 1)
+bullC  = not na(swHi) and close[1] > swHi and close[1] > open[1] and low > high[2]
+bearC  = not bullC and not na(swLo) and close[1] < swLo and close[1] < open[1] and high < low[2]
+side   = bullC ? 1 : bearC ? -1 : 0
+inSess = not na(time(timeframe.period, sigSess, "America/Chicago"))
+
+// ---------------------------------------------------------------- follow each signal to its real result
+// Same rules as the backtest: the limit fills from the next candle; it is cancelled if not filled within
+// maxWait candles, if a candle opens past the stop, or at 15:40 CT. Once filled: stop first if a candle hits
+// both, else the target; anything still open at 15:40 CT is closed there. Checked on closed candles only.
+type Trade
+    int   side
+    float entry
+    float stop
+    float tgt
+    int   sigBar
+    int   fillBar
+    int   grade        // 0 = A+, 1 = A, 2 = B
+    line  sLine
+    line  tLine
+    line  eLine
+
+var array<Trade> trades = array.new<Trade>()
+var int   nSig  = 0
+var int   nWin  = 0
+var int   nLoss = 0
+var int   nFlat = 0
+var int   nMiss = 0
+var float netR  = 0.0
+var array<float> gradeR = array.from(0.0, 0.0, 0.0)
+var array<int>   gradeN = array.from(0, 0, 0)
+ctMin   = hour(time, "America/Chicago") * 60 + minute(time, "America/Chicago")
+dayOver = ctMin >= 940 or ctMin < 510
+
+if barstate.isconfirmed and array.size(trades) > 0
+    for k = array.size(trades) - 1 to 0
+        t = array.get(trades, k)
+        if bar_index > t.sigBar
+            bool   fin = false
+            float  r   = na
+            string res = ""
+            if na(t.fillBar)
+                if bar_index - t.sigBar > maxWait or dayOver or (t.side == 1 ? open <= t.stop : open >= t.stop)
+                    fin := true
+                    res := "no fill"
+                else if (t.side == 1 ? low <= t.entry : high >= t.entry)
+                    t.fillBar := bar_index
+            if not fin and not na(t.fillBar)
+                risk1 = math.abs(t.entry - t.stop)
+                if (t.side == 1 ? low <= t.stop : high >= t.stop)
+                    fin := true
+                    r   := -1.0
+                else if (t.side == 1 ? high >= t.tgt : low <= t.tgt)
+                    fin := true
+                    r   := rrBox
+                else if dayOver
+                    fin := true
+                    r   := (close - t.entry) * t.side / risk1
+            if fin
+                if not na(t.sLine)
+                    line.set_x2(t.sLine, bar_index)
+                    line.set_x2(t.tLine, bar_index)
+                    line.set_x2(t.eLine, bar_index)
+                    if na(r)
+                        line.set_color(t.sLine, color.new(color.gray, 60))
+                        line.set_color(t.tLine, color.new(color.gray, 60))
+                        line.set_color(t.eLine, color.new(color.gray, 60))
+                if na(r)
+                    nMiss += 1
+                    label.new(bar_index, t.entry, "no fill", style=label.style_label_left, color=color.new(color.gray, 100), textcolor=color.gray, size=size.tiny)
+                else
+                    netR += r
+                    array.set(gradeR, t.grade, array.get(gradeR, t.grade) + r)
+                    array.set(gradeN, t.grade, array.get(gradeN, t.grade) + 1)
+                    if r > 0.05
+                        nWin += 1
+                    else if r < -0.05
+                        nLoss += 1
+                    else
+                        nFlat += 1
+                    txt = (r >= 0 ? "+" : "") + str.tostring(r, "#.##") + "R"
+                    tip = r == rrBox ? "Target hit" : r == -1.0 ? "Stopped out" : "Closed at 3:40 CT"
+                    label.new(bar_index, r > 0 ? t.tgt : t.stop, txt, style=label.style_label_left, color=color.new(color.black, 100), textcolor=r > 0 ? color.teal : r < 0 ? color.red : color.gray, size=size.small, tooltip=tip)
+                array.remove(trades, k)
+            else if not na(t.sLine)
+                line.set_x2(t.sLine, bar_index + 1)
+                line.set_x2(t.tLine, bar_index + 1)
+                line.set_x2(t.eLine, bar_index + 1)
+
+int   sig      = 0      // +1 buy, -1 sell
+float sigEntry = na
+float sigStop  = na
+
+// barstate.isconfirmed: only signal once the candle has closed, like the backtest
+if side != 0 and trd * side > 0 and inSess and barstate.isconfirmed and not na(avgRng) and bar_index > sweepBars + 3
+    disp = math.abs(close[1] - open[1]) / avgRng
+    if disp >= bDisp
+        off  = side == 1 ? loOff : hiOff
+        ext  = side == 1 ? low[off] : high[off]
+        extT = time[off]
+        bool at15 = false
+        bool atPD = false
+        n = array.size(lvPx)
+        if n > 0
+            for j = 0 to n - 1
+                t0 = array.get(lvT, j)
+                if t0 <= extT and extT - t0 <= lookMs and math.abs(array.get(lvPx, j) - ext) <= nearPts
+                    if array.get(lvKind, j) == 1
+                        at15 := true
+                    else
+                        atPD := true
+        if at15 and not atPD
+            tick    = syminfo.mintick
+            entry   = side == 1 ? math.floor((low + high[2]) / 2 / tick) * tick : math.ceil((high + low[2]) / 2 / tick) * tick
+            stopPts = math.max(math.abs(entry - (ext - side * tick)), minStop * ptScale)
+            stop    = entry - side * stopPts
+            tgt     = entry + side * stopPts * rrBox
+            sig      := side
+            sigEntry := entry
+            sigStop  := stop
+            grade = disp >= minDisp ? 0 : disp >= aDisp ? 1 : 2
+            gName = grade == 0 ? "A+" : grade == 1 ? "A" : "B"
+            tag   = gName + " " + (side == 1 ? "BUY" : "SELL")
+            info  = tag + "\nlimit " + str.tostring(entry) + "\nstop " + str.tostring(stop) + "\ntarget " + str.tostring(tgt) + " (" + str.tostring(rrBox) + "R)\nCHoCH candle " + str.tostring(disp, "#.#") + "x avg"
+            // small marker under the candle for a buy, above for a sell; A+ solid, A lighter, B faint
+            base  = side == 1 ? color.teal : color.red
+            mCol  = color.new(base, grade == 0 ? 0 : grade == 1 ? 35 : 65)
+            mTxt  = (side == 1 ? "▲ " : "▼ ") + gName + (showPx ? "\n" + str.tostring(entry) : "")
+            label.new(bar_index, side == 1 ? low : high, mTxt, style=side == 1 ? label.style_label_up : label.style_label_down, color=mCol, textcolor=color.white, size=grade == 0 ? size.small : size.tiny, tooltip=info)
+            line sl = na
+            line tl = na
+            line el = na
+            if showRR
+                // thin lines that grow candle by candle and stop where the trade actually ended
+                sl := line.new(bar_index, stop, bar_index + 1, stop, color=color.new(color.red, 30), width=1)
+                tl := line.new(bar_index, tgt, bar_index + 1, tgt, color=color.new(color.teal, 30), width=1)
+                el := line.new(bar_index, entry, bar_index + 1, entry, color=color.new(color.white, 40), width=1, style=line.style_dotted)
+            array.push(trades, Trade.new(side, entry, stop, tgt, bar_index, na, grade, sl, tl, el))
+            nSig += 1
+            alert(tag + " " + syminfo.ticker + ": limit " + str.tostring(entry) + ", stop " + str.tostring(stop) + ", target " + str.tostring(tgt) + " (" + str.tostring(rrBox) + "R)", alert.freq_once_per_bar_close)
+
+// ---------------------------------------------------------------- data window + alerts
+plot(sig, "Signal (+1 buy, -1 sell)", display=display.data_window)
+plot(sigEntry, "Entry", display=display.data_window)
+plot(sigStop, "Stop", display=display.data_window)
+
+alertcondition(sig == 1, "BUY", "MES BUY: limit {{plot(\"Entry\")}}, stop {{plot(\"Stop\")}}")
+alertcondition(sig == -1, "SELL", "MES SELL: limit {{plot(\"Entry\")}}, stop {{plot(\"Stop\")}}")
+
+// ---------------------------------------------------------------- results table (every signal on the chart, before fees)
+var table tbl = table.new(position.top_right, 2, 10, bgcolor=color.new(color.black, 20), border_width=1)
+if showTbl and barstate.islast
+    nDone = nWin + nLoss + nFlat
+    table.cell(tbl, 0, 0, "Signals", text_color=color.white)
+    table.cell(tbl, 1, 0, str.tostring(nSig), text_color=color.white)
+    table.cell(tbl, 0, 1, "Not filled", text_color=color.white)
+    table.cell(tbl, 1, 1, str.tostring(nMiss), text_color=color.white)
+    table.cell(tbl, 0, 2, "Wins / losses", text_color=color.white)
+    table.cell(tbl, 1, 2, str.tostring(nWin) + " / " + str.tostring(nLoss) + (nFlat > 0 ? " (" + str.tostring(nFlat) + " flat)" : ""), text_color=color.white)
+    table.cell(tbl, 0, 3, "Win rate", text_color=color.white)
+    table.cell(tbl, 1, 3, nDone > 0 ? str.tostring(100.0 * nWin / nDone, "#") + "%" : "-", text_color=color.white)
+    table.cell(tbl, 0, 4, "Net R", text_color=color.white)
+    table.cell(tbl, 1, 4, str.tostring(netR, "+#.#;-#.#"), text_color=netR >= 0 ? color.teal : color.red)
+    table.cell(tbl, 0, 5, "Net at $" + str.tostring(riskUsd, "#") + " risk", text_color=color.white)
+    table.cell(tbl, 1, 5, str.tostring(netR * riskUsd, "+$#,###;-$#,###"), text_color=netR >= 0 ? color.teal : color.red)
+    table.cell(tbl, 0, 6, "Open now", text_color=color.white)
+    table.cell(tbl, 1, 6, str.tostring(array.size(trades)), text_color=color.white)
+    for g = 0 to 2
+        gr = array.get(gradeR, g)
+        table.cell(tbl, 0, 7 + g, (g == 0 ? "A+" : g == 1 ? "A" : "B") + " (" + str.tostring(array.get(gradeN, g)) + " trades)", text_color=color.white)
+        table.cell(tbl, 1, 7 + g, str.tostring(gr, "+#.#R;-#.#R"), text_color=gr >= 0 ? color.teal : color.red)
+
+if barstate.islast and (not timeframe.isintraday or tfSec > 900)
+    label.new(bar_index, high, "CHoCH A+ is built for 1, 5 or 15-minute charts", color=color.orange, textcolor=color.black)

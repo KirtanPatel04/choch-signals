@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CHoCH Signals</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📈</text></svg>">
+<style>
+:root {
+  --bg: #0b0e14; --panel: #131824; --line: #232a3a; --text: #e6e9ef; --muted: #8b93a7;
+  --up: #26a69a; --down: #ef5350; --warn: #f0a940; --aplus: #26a69a; --a: #4f9de0; --b: #9b8cff;
+}
+:root[data-theme="light"] {
+  --bg: #f6f7f9; --panel: #ffffff; --line: #e1e4ea; --text: #161a22; --muted: #5c6577;
+  --up: #128a7e; --down: #d63c3a; --warn: #b97300; --aplus: #128a7e; --a: #2d74b8; --b: #6a58d6;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; padding: 16px; border-bottom: 1px solid var(--line); }
+header h1 { margin: 0; font-size: 18px; }
+nav a { color: var(--muted); text-decoration: none; margin-left: 14px; }
+nav a.on, nav a:hover { color: var(--text); }
+main { max-width: 1150px; margin: 0 auto; padding: 16px; }
+.bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; color: var(--muted); }
+.bar label { display: flex; gap: 6px; align-items: center; }
+input, select, button { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font: inherit; }
+button { cursor: pointer; }
+h2 { font-size: 15px; margin: 22px 0 8px; }
+.note { color: var(--muted); font-size: 12.5px; margin: 4px 0 10px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 10px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+.card .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.grade { font-weight: 700; padding: 1px 8px; border-radius: 999px; font-size: 12px; color: #fff; }
+.g-Aplus { background: var(--aplus); } .g-A { background: var(--a); } .g-B { background: var(--b); }
+.buy { color: var(--up); font-weight: 700; } .sell { color: var(--down); font-weight: 700; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-variant-numeric: tabular-nums; }
+.kv span:nth-child(odd) { color: var(--muted); }
+.status { font-size: 12px; padding: 1px 7px; border-radius: 6px; border: 1px solid var(--line); }
+.s-target { color: var(--up); border-color: var(--up); } .s-stop { color: var(--down); border-color: var(--down); }
+.s-waiting, .s-open { color: var(--warn); border-color: var(--warn); }
+.conf { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; margin-top: 8px; }
+.conf i { display: block; height: 100%; }
+.wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+th:first-child, td:first-child, th:nth-child(2), td:nth-child(2), th:nth-child(3), td:nth-child(3) { text-align: left; }
+th { color: var(--muted); font-weight: 600; font-size: 12.5px; }
+.pos { color: var(--up); } .neg { color: var(--down); } .muted { color: var(--muted); }
+.empty { color: var(--muted); padding: 18px; text-align: center; background: var(--panel); border: 1px dashed var(--line); border-radius: 10px; }
+.err { color: var(--warn); }
+</style>
+</head>
+<body>
+<header>
+  <h1>CHoCH Signals <span class="muted" style="font-weight:400;font-size:13px">A+ / A / B</span></h1>
+  <nav><a href="./" class="on">Signals</a><a href="journal.html">Journal</a><a href="#" id="theme">Theme</a></nav>
+</header>
+<main>
+  <div class="bar">
+    <label>Risk per trade $ <input id="risk" type="number" min="1" value="100" style="width:90px"></label>
+    <label>Market <select id="mkt"><option value="">All</option></select></label>
+    <label>Grades <select id="grd"><option value="A+,A,B">A+, A, B</option><option value="A+,A">A+ and A</option><option value="A+">A+ only</option></select></label>
+    <label>Min confidence <select id="minc"><option value="0">any</option><option value="50">50+</option><option value="60" selected>60+</option></select></label>
+    <span id="updated"></span>
+  </div>
+
+  <h2>Signals (last 3 sessions)</h2>
+  <p class="note">Updates about every 10 minutes from delayed 1-minute data, so use the TradingView alerts for exact timing. A signal is a <b>limit order</b>: entry at the fair-value gap, stop past the push, 2R target. It's cancelled if not filled within 10 candles.</p>
+  <div id="cards" class="cards"></div>
+
+  <h2>Track record by market, session and grade</h2>
+  <p class="note" id="period"></p>
+  <div class="wrap"><table id="stats"><thead><tr>
+    <th>Market</th><th>Session</th><th>Grade</th><th>Signals</th><th>Trades</th><th>Win %</th><th>Avg R</th><th>Net R</th><th>Net $ at your risk</th><th>Confidence</th>
+  </tr></thead><tbody></tbody></table></div>
+  <p class="note"><b>Confidence</b> (0-100) is the past ~30 days of the same market, session and grade: 50 = broke even, higher = made more per trade. Small samples are pulled toward 50. It's a track record, not a prediction, and with 36 groups some will look good by luck. Each signal is counted on its own, before fees.</p>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+const store = { get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+const theme = store.get("theme", "");
+if (theme) document.documentElement.dataset.theme = theme;
+$("#theme").onclick = e => { e.preventDefault(); const t = document.documentElement.dataset.theme === "light" ? "dark" : "light"; document.documentElement.dataset.theme = t; store.set("theme", t); };
+for (const id of ["risk", "mkt", "grd", "minc"]) { const v = store.get("f_" + id, null); if (v !== null) $("#" + id).value = v; }
+
+let DATA = null;
+const gcls = g => g === "A+" ? "g-Aplus" : "g-" + g;
+const confColor = c => c >= 60 ? "var(--up)" : c >= 50 ? "var(--warn)" : "var(--down)";
+const fmtT = iso => iso ? new Date(iso).toLocaleString([], { timeZone: "America/Chicago", weekday: "short", hour: "numeric", minute: "2-digit" }) + " CT" : "";
+const money = v => (v >= 0 ? "+$" : "-$") + Math.abs(Math.round(v)).toLocaleString();
+const num = v => Number(v).toLocaleString(undefined, { maximumFractionDigits: 4 });
+
+function size(sig) {
+  const m = DATA.markets[sig.market], risk = +$("#risk").value || 0;
+  const perUnit = sig.risk_pts * m.point_value;
+  if (m.unit === "contracts") { const q = Math.floor(risk / perUnit); return q >= 1 ? `${q} contract${q > 1 ? "s" : ""} (${money(-q * perUnit).replace("+", "")} risk)` : "stop too wide for this risk"; }
+  const q = risk / perUnit;
+  return `${q.toFixed(2)} ${m.unit} (~${money(q * sig.entry).replace("+", "")} position)`;
+}
+
+function render() {
+  if (!DATA) return;
+  const mk = $("#mkt").value, grades = $("#grd").value.split(","), minc = +$("#minc").value, risk = +$("#risk").value || 0;
+  ["risk", "mkt", "grd", "minc"].forEach(id => store.set("f_" + id, $("#" + id).value));
+  const sigs = DATA.signals.filter(s => (!mk || s.market === mk) && grades.includes(s.tier) && (s.confidence ?? 0) >= minc);
+  $("#cards").innerHTML = sigs.length ? sigs.map(s => {
+    const res = s.r == null ? "" : ` <b class="${s.r >= 0 ? "pos" : "neg"}">${s.r >= 0 ? "+" : ""}${s.r}R</b>`;
+    return `<div class="card">
+      <div class="top"><span><span class="grade ${gcls(s.tier)}">${s.tier}</span> <span class="${s.side === "BUY" ? "buy" : "sell"}">${s.side}</span> ${s.market}</span>
+      <span class="status s-${s.status.replace(" ", "")}">${s.status}</span></div>
+      <div class="kv">
+        <span>Time</span><span>${fmtT(s.time)} · ${s.session}</span>
+        <span>Limit</span><span>${num(s.entry)}</span>
+        <span>Stop</span><span>${num(s.stop)} <span class="muted">(${s.risk_ticks} ticks)</span></span>
+        <span>Target</span><span>${num(s.target)} <span class="muted">(2R)</span></span>
+        <span>Size</span><span>${size(s)}</span>
+        <span>Result</span><span>${s.status}${res}</span>
+        <span>Confidence</span><span style="color:${confColor(s.confidence)}">${s.confidence ?? "-"}</span>
+      </div>
+      <div class="conf"><i style="width:${s.confidence ?? 0}%;background:${confColor(s.confidence)}"></i></div>
+    </div>`;
+  }).join("") : `<div class="empty">No signals match these filters in the last 3 sessions.</div>`;
+
+  const rows = DATA.stats.filter(x => (!mk || x.market === mk) && grades.includes(x.tier));
+  $("#stats tbody").innerHTML = rows.map(x => `<tr>
+    <td>${x.market}</td><td>${x.session}</td><td><span class="grade ${gcls(x.tier)}">${x.tier}</span></td>
+    <td>${x.signals}</td><td>${x.trades}</td><td>${x.win_rate == null ? "-" : Math.round(x.win_rate * 100) + "%"}</td>
+    <td class="${x.avg_r >= 0 ? "pos" : "neg"}">${x.avg_r == null ? "-" : x.avg_r.toFixed(2)}</td>
+    <td class="${x.net_r >= 0 ? "pos" : "neg"}">${x.net_r.toFixed(1)}</td>
+    <td class="${x.net_r >= 0 ? "pos" : "neg"}">${money(x.net_r * risk)}</td>
+    <td><span style="color:${confColor(x.confidence)}">${x.confidence}</span></td></tr>`).join("");
+}
+
+fetch("data/signals.json?" + Date.now()).then(r => r.json()).then(d => {
+  DATA = d;
+  const opts = Object.keys(d.markets).map(m => `<option>${m}</option>`).join("");
+  const cur = store.get("f_mkt", ""); $("#mkt").insertAdjacentHTML("beforeend", opts); $("#mkt").value = cur;
+  $("#updated").innerHTML = `Updated ${fmtT(d.generated)}` + (d.errors.length ? ` · <span class="err">${d.errors.join("; ")}</span>` : "");
+  $("#period").textContent = `Period: ${new Date(d.period.start).toLocaleDateString()} - ${new Date(d.period.end).toLocaleDateString()}. Sessions (CT): ` + Object.entries(d.sessions).map(([k, v]) => `${k} ${v}`).join(", ") + ".";
+  render();
+}).catch(() => { $("#cards").innerHTML = `<div class="empty">Couldn't load signals yet. The first scan may still be running.</div>`; });
+["risk", "mkt", "grd", "minc"].forEach(id => $("#" + id).addEventListener("input", render));
+</script>
+</body>
+</html>
