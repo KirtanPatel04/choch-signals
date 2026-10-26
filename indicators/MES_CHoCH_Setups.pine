@@ -33,7 +33,7 @@ tfIdx = tfSec < 300 ? 0 : tfSec < 900 ? 1 : 2      // 0 = 1M, 1 = 5M, 2 = 15M
 htf   = tfIdx == 2 ? "60" : "15"                   // timeframe for levels and trend
 
 // ---------------------------------------------------------------- inputs
-sigSess = input.session("0830-1500", "Signal hours (Chicago time)", tooltip="Same entry window as the backtest.")
+sessMode = input.string("Day + Night", "Sessions", options=["Day (8:30 AM - 3:00 PM CT)", "Night / Asia (7:00 - 11:00 PM CT)", "Day + Night"], tooltip="Signals only appear in these hours (Chicago time). Day trades are closed at 3:40 PM, night trades at 2:00 AM. Tested: MES day = A+/A gap entries; at night SOLUSD and MNQ did best.")
 grades  = input.string("A+, A and B", "Grades to show", options=["A+ only", "A+ and A", "A+, A and B"], tooltip="1M chart. A+ = CHoCH candle >= 1.5x the average range, A = 1.2-1.5x, B = 1.0-1.2x. Everything else is the same setup.")
 showRR  = input.bool(true, "Draw entry / stop / target lines", tooltip="Thin lines that stop where the trade ended.")
 showPx  = input.bool(false, "Write prices on the marker", tooltip="Off = small marker only; hover it to see limit, stop and target.")
@@ -185,7 +185,11 @@ hiOff  = -ta.highestbars(high, sweepBars + 1)
 bullC  = not na(swHi) and close[1] > swHi and close[1] > open[1] and low > high[2]
 bearC  = not bullC and not na(swLo) and close[1] < swLo and close[1] < open[1] and high < low[2]
 side   = bullC ? 1 : bearC ? -1 : 0
-inSess = not na(time(timeframe.period, sigSess, "America/Chicago"))
+useDay   = sessMode != "Night / Asia (7:00 - 11:00 PM CT)"
+useNight = sessMode != "Day (8:30 AM - 3:00 PM CT)"
+inDay    = not na(time(timeframe.period, "0830-1500", "America/Chicago"))
+inNight  = not na(time(timeframe.period, "1900-2300", "America/Chicago"))
+inSess   = (useDay and inDay) or (useNight and inNight)
 
 // ---------------------------------------------------------------- follow each signal to its real result
 // Same rules as the backtest: the limit fills from the next candle; it is cancelled if not filled within
@@ -217,7 +221,8 @@ var float netR  = 0.0
 var array<float> gradeR = array.from(0.0, 0.0, 0.0, 0.0)
 var array<int>   gradeN = array.from(0, 0, 0, 0)
 ctMin   = hour(time, "America/Chicago") * 60 + minute(time, "America/Chicago")
-dayOver = ctMin >= 940 or ctMin < 510
+// open orders/trades are closed outside 8:30 AM - 3:40 PM (day) and 7:00 PM - 2:00 AM (night)
+dayOver = not ((ctMin >= 510 and ctMin < 940) or ctMin >= 1140 or ctMin < 120)
 
 if barstate.isconfirmed and array.size(trades) > 0
     for k = array.size(trades) - 1 to 0
