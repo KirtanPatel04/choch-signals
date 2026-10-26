@@ -33,7 +33,7 @@ tfIdx = tfSec < 300 ? 0 : tfSec < 900 ? 1 : 2      // 0 = 1M, 1 = 5M, 2 = 15M
 htf   = tfIdx == 2 ? "60" : "15"                   // timeframe for levels and trend
 
 // ---------------------------------------------------------------- inputs
-sessMode = input.string("Day + Night", "Sessions", options=["Day (8:30 AM - 3:00 PM CT)", "Night / Asia (7:00 - 11:00 PM CT)", "Day + Night"], tooltip="Signals only appear in these hours (Chicago time). Day trades are closed at 3:40 PM, night trades at 2:00 AM. Tested: MES day = A+/A gap entries; at night SOLUSD and MNQ did best.")
+sessMode = input.string("Day (8:30 AM - 3:00 PM CT)", "Sessions", options=["Day (8:30 AM - 3:00 PM CT)", "Night / Asia (7:00 - 11:00 PM CT)", "Day + Night"], tooltip="Signals only appear in these hours (Chicago time). Day trades are closed at 3:40 PM, night trades at 2:00 AM. Tested: MES day = A+/A gap entries; at night SOLUSD and MNQ did best.")
 grades  = input.string("A+, A and B", "Grades to show", options=["A+ only", "A+ and A", "A+, A and B"], tooltip="1M chart. A+ = CHoCH candle >= 1.5x the average range, A = 1.2-1.5x, B = 1.0-1.2x. Everything else is the same setup.")
 showRR  = input.bool(true, "Draw entry / stop / target lines", tooltip="Thin lines that stop where the trade ended.")
 showPx  = input.bool(false, "Write prices on the marker", tooltip="Off = small marker only; hover it to see limit, stop and target.")
