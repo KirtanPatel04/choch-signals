@@ -38,7 +38,10 @@ grades  = input.string("A+, A and B", "Grades to show", options=["A+ only", "A+ 
 showRR  = input.bool(true, "Draw entry / stop / target lines", tooltip="Thin lines that stop where the trade ended.")
 showPx  = input.bool(false, "Write prices on the marker", tooltip="Off = small marker only; hover it to see limit, stop and target.")
 showCh  = input.bool(true, "Draw CHoCH lines", tooltip="Line from the swing to the candle that closed through it, only when structure flips (downtrend -> up or uptrend -> down).")
-chLenIn = input.int(0, "CHoCH swing size (candles each side, 0 = auto)", minval=0, maxval=50, tooltip="Bigger = fewer, more important swings. Auto: 10 on 1M, 5 on 5M, 3 on 15M.")
+chLenIn = input.int(0, "CHoCH swing size (candles each side, 0 = auto)", minval=0, maxval=50, tooltip="Bigger = fewer, more important swings. Auto: 5 on 1M, 5 on 5M, 3 on 15M.")
+chTrend = input.bool(true, "Only CHoCH with the 15M trend", tooltip="Draw a CHoCH (and its retest box) only when it points the same way as the 15-minute structure. Fewer, better ones.")
+showRT  = input.bool(true, "CHoCH retest trade boxes", tooltip="Like the textbook picture: limit back at the CHoCH line, stop past the low/high that made the CHoCH, target box above. Tested Sep 27 - Oct 26 (with the 15M trend, 3R): MYM +0.97R/trade, SOLUSD at night +0.36R, MES -0.29R (lost). Cancelled if not filled in 30 candles or if price reaches the target first.")
+rtR     = input.float(3.0, "Retest target (R)", minval=0.5)
 rrBox   = input.float(2.0, "Target (R)", minval=0.5, tooltip="2R tested best.")
 maxWait = input.int(10, "Cancel limit if not filled after (bars)", minval=1, tooltip="Same as the backtest: the limit order is cancelled after 10 candles.")
 riskUsd = input.float(100, "Risk per trade ($) for the results table", minval=1)
@@ -120,7 +123,10 @@ if low[1] < low[2] and low[1] <= low
 // above the LAST LOWER HIGH (the high that came right before the lowest low). Uptrend / bearish mirror it.
 // Breaks in the same direction as the trend (BOS) are not drawn.
 // Drawn like the textbook picture: an orange line from that swing to just past the break, "ChoCH" on the line.
-chLen = chLenIn > 0 ? chLenIn : tfIdx == 0 ? 10 : tfIdx == 1 ? 5 : 3
+chLen = chLenIn > 0 ? chLenIn : tfIdx == 2 ? 3 : 5
+float rtLvl  = na             // set on the candle a CHoCH happens (used for the retest trade below)
+float rtExt  = na
+int   rtSide = 0
 ph = ta.pivothigh(high, chLen, chLen)
 pl = ta.pivotlow(low, chLen, chLen)
 var float cHi     = na
@@ -146,16 +152,31 @@ if barstate.isconfirmed
     if not na(cHi) and not cHiUsed and close > cHi
         cHiUsed := true
         // CHoCH only if we were in a downtrend and this high was a lower high
-        if msTrend == -1 and showCh and (na(pHi) or cHi < pHi)
-            line.new(cHiBar, cHi, bar_index + 5, cHi, color=color.orange, width=2)
-            label.new(math.round((cHiBar + bar_index + 5) / 2), cHi, "ChoCH", style=label.style_label_center, color=color.new(color.black, 100), textcolor=color.orange, size=size.small)
+        if msTrend == -1 and (na(pHi) or cHi < pHi) and (not chTrend or trd > 0)
+            if showCh
+                line.new(cHiBar, cHi, bar_index + 5, cHi, color=color.orange, width=2)
+                label.new(math.round((cHiBar + bar_index + 5) / 2), cHi, "ChoCH", style=label.style_label_center, color=color.new(color.black, 100), textcolor=color.orange, size=size.small)
+            // the lowest low between the lower high and the break = where the stop goes
+            float lo = low
+            for m = 0 to math.min(bar_index - cHiBar, 190)
+                lo := math.min(lo, low[m])
+            rtSide := 1
+            rtLvl  := cHi
+            rtExt  := lo
         msTrend := 1
     else if not na(cLo) and not cLoUsed and close < cLo
         cLoUsed := true
         // CHoCH only if we were in an uptrend and this low was a higher low
-        if msTrend == 1 and showCh and (na(pLo) or cLo > pLo)
-            line.new(cLoBar, cLo, bar_index + 5, cLo, color=color.orange, width=2)
-            label.new(math.round((cLoBar + bar_index + 5) / 2), cLo, "ChoCH", style=label.style_label_center, color=color.new(color.black, 100), textcolor=color.orange, size=size.small)
+        if msTrend == 1 and (na(pLo) or cLo > pLo) and (not chTrend or trd < 0)
+            if showCh
+                line.new(cLoBar, cLo, bar_index + 5, cLo, color=color.orange, width=2)
+                label.new(math.round((cLoBar + bar_index + 5) / 2), cLo, "ChoCH", style=label.style_label_center, color=color.new(color.black, 100), textcolor=color.orange, size=size.small)
+            float hi = high
+            for m = 0 to math.min(bar_index - cLoBar, 190)
+                hi := math.max(hi, high[m])
+            rtSide := -1
+            rtLvl  := cLo
+            rtExt  := hi
         msTrend := -1
 
 avgRng = ta.sma(high - low, 30)[1]
@@ -177,10 +198,14 @@ type Trade
     float tgt
     int   sigBar
     int   fillBar
-    int   grade        // 0 = A+, 1 = A, 2 = B
+    int   grade        // 0 = A+, 1 = A, 2 = B, 3 = CHoCH retest
     line  sLine
     line  tLine
     line  eLine
+    float rr
+    int   wait
+    box   sBox
+    box   tBox
 
 var array<Trade> trades = array.new<Trade>()
 var int   nSig  = 0
@@ -189,8 +214,8 @@ var int   nLoss = 0
 var int   nFlat = 0
 var int   nMiss = 0
 var float netR  = 0.0
-var array<float> gradeR = array.from(0.0, 0.0, 0.0)
-var array<int>   gradeN = array.from(0, 0, 0)
+var array<float> gradeR = array.from(0.0, 0.0, 0.0, 0.0)
+var array<int>   gradeN = array.from(0, 0, 0, 0)
 ctMin   = hour(time, "America/Chicago") * 60 + minute(time, "America/Chicago")
 dayOver = ctMin >= 940 or ctMin < 510
 
@@ -202,7 +227,7 @@ if barstate.isconfirmed and array.size(trades) > 0
             float  r   = na
             string res = ""
             if na(t.fillBar)
-                if bar_index - t.sigBar > maxWait or dayOver or (t.side == 1 ? open <= t.stop : open >= t.stop)
+                if bar_index - t.sigBar > t.wait or dayOver or (t.side == 1 ? open <= t.stop : open >= t.stop) or (t.side == 1 ? high >= t.tgt : low <= t.tgt)
                     fin := true
                     res := "no fill"
                 else if (t.side == 1 ? low <= t.entry : high >= t.entry)
@@ -214,11 +239,17 @@ if barstate.isconfirmed and array.size(trades) > 0
                     r   := -1.0
                 else if (t.side == 1 ? high >= t.tgt : low <= t.tgt)
                     fin := true
-                    r   := rrBox
+                    r   := t.rr
                 else if dayOver
                     fin := true
                     r   := (close - t.entry) * t.side / risk1
             if fin
+                if not na(t.sBox)
+                    box.set_right(t.sBox, bar_index)
+                    box.set_right(t.tBox, bar_index)
+                    if na(r)
+                        box.set_bgcolor(t.sBox, color.new(color.gray, 88))
+                        box.set_bgcolor(t.tBox, color.new(color.gray, 88))
                 if not na(t.sLine)
                     line.set_x2(t.sLine, bar_index)
                     line.set_x2(t.tLine, bar_index)
@@ -241,13 +272,34 @@ if barstate.isconfirmed and array.size(trades) > 0
                     else
                         nFlat += 1
                     txt = (r >= 0 ? "+" : "") + str.tostring(r, "#.##") + "R"
-                    tip = r == rrBox ? "Target hit" : r == -1.0 ? "Stopped out" : "Closed at 3:40 CT"
+                    tip = r == t.rr ? "Target hit" : r == -1.0 ? "Stopped out" : "Closed at 3:40 CT"
                     label.new(bar_index, r > 0 ? t.tgt : t.stop, txt, style=label.style_label_left, color=color.new(color.black, 100), textcolor=r > 0 ? color.teal : r < 0 ? color.red : color.gray, size=size.small, tooltip=tip)
                 array.remove(trades, k)
-            else if not na(t.sLine)
-                line.set_x2(t.sLine, bar_index + 1)
-                line.set_x2(t.tLine, bar_index + 1)
-                line.set_x2(t.eLine, bar_index + 1)
+            else
+                if not na(t.sLine)
+                    line.set_x2(t.sLine, bar_index + 1)
+                    line.set_x2(t.tLine, bar_index + 1)
+                    line.set_x2(t.eLine, bar_index + 1)
+                if not na(t.sBox)
+                    box.set_right(t.sBox, bar_index + 1)
+                    box.set_right(t.tBox, bar_index + 1)
+
+// ---------------------------------------------------------------- CHoCH retest trade (the textbook picture)
+// Limit back at the CHoCH line, stop one tick past the extreme that made the CHoCH, target rtR x risk.
+// Drawn as a target box (cyan) and a stop box (pink) that grow until the trade ends.
+if showRT and rtSide != 0 and inSess and barstate.isconfirmed
+    tick  = syminfo.mintick
+    rStop = rtExt - rtSide * tick
+    risk  = math.abs(rtLvl - rStop)
+    if risk > 0
+        rTgt = rtLvl + rtSide * rtR * risk
+        tb = box.new(bar_index, math.max(rtLvl, rTgt), bar_index + 1, math.min(rtLvl, rTgt), border_color=color.new(color.aqua, 60), bgcolor=color.new(color.aqua, 80))
+        sb = box.new(bar_index, math.max(rtLvl, rStop), bar_index + 1, math.min(rtLvl, rStop), border_color=color.new(color.red, 60), bgcolor=color.new(color.red, 85))
+        info = "CHoCH retest " + (rtSide == 1 ? "BUY" : "SELL") + "\nlimit " + str.tostring(rtLvl) + "\nstop " + str.tostring(rStop) + "\ntarget " + str.tostring(rTgt) + " (" + str.tostring(rtR) + "R)"
+        label.new(bar_index, rtLvl, rtSide == 1 ? "▲" : "▼", style=label.style_label_right, color=color.new(color.black, 100), textcolor=color.orange, size=size.small, tooltip=info)
+        array.push(trades, Trade.new(rtSide, rtLvl, rStop, rTgt, bar_index, na, 3, na, na, na, rtR, 30, sb, tb))
+        nSig += 1
+        alert("CHoCH retest " + (rtSide == 1 ? "BUY " : "SELL ") + syminfo.ticker + ": limit " + str.tostring(rtLvl) + ", stop " + str.tostring(rStop) + ", target " + str.tostring(rTgt), alert.freq_once_per_bar_close)
 
 int   sig      = 0      // +1 buy, -1 sell
 float sigEntry = na
@@ -297,7 +349,7 @@ if side != 0 and trd * side > 0 and inSess and barstate.isconfirmed and not na(a
                 sl := line.new(bar_index, stop, bar_index + 1, stop, color=color.new(color.red, 30), width=1)
                 tl := line.new(bar_index, tgt, bar_index + 1, tgt, color=color.new(color.teal, 30), width=1)
                 el := line.new(bar_index, entry, bar_index + 1, entry, color=color.new(color.white, 40), width=1, style=line.style_dotted)
-            array.push(trades, Trade.new(side, entry, stop, tgt, bar_index, na, grade, sl, tl, el))
+            array.push(trades, Trade.new(side, entry, stop, tgt, bar_index, na, grade, sl, tl, el, rrBox, maxWait, na, na))
             nSig += 1
             alert(tag + " " + syminfo.ticker + ": limit " + str.tostring(entry) + ", stop " + str.tostring(stop) + ", target " + str.tostring(tgt) + " (" + str.tostring(rrBox) + "R)", alert.freq_once_per_bar_close)
 
@@ -310,7 +362,7 @@ alertcondition(sig == 1, "BUY", "MES BUY: limit {{plot(\"Entry\")}}, stop {{plot
 alertcondition(sig == -1, "SELL", "MES SELL: limit {{plot(\"Entry\")}}, stop {{plot(\"Stop\")}}")
 
 // ---------------------------------------------------------------- results table (every signal on the chart, before fees)
-var table tbl = table.new(position.top_right, 2, 10, bgcolor=color.new(color.black, 20), border_width=1)
+var table tbl = table.new(position.top_right, 2, 11, bgcolor=color.new(color.black, 20), border_width=1)
 if showTbl and barstate.islast
     nDone = nWin + nLoss + nFlat
     table.cell(tbl, 0, 0, "Signals", text_color=color.white)
@@ -327,9 +379,9 @@ if showTbl and barstate.islast
     table.cell(tbl, 1, 5, str.tostring(netR * riskUsd, "+$#,###;-$#,###"), text_color=netR >= 0 ? color.teal : color.red)
     table.cell(tbl, 0, 6, "Open now", text_color=color.white)
     table.cell(tbl, 1, 6, str.tostring(array.size(trades)), text_color=color.white)
-    for g = 0 to 2
+    for g = 0 to 3
         gr = array.get(gradeR, g)
-        table.cell(tbl, 0, 7 + g, (g == 0 ? "A+" : g == 1 ? "A" : "B") + " (" + str.tostring(array.get(gradeN, g)) + " trades)", text_color=color.white)
+        table.cell(tbl, 0, 7 + g, (g == 0 ? "A+" : g == 1 ? "A" : g == 2 ? "B" : "CHoCH retest") + " (" + str.tostring(array.get(gradeN, g)) + " trades)", text_color=color.white)
         table.cell(tbl, 1, 7 + g, str.tostring(gr, "+#.#R;-#.#R"), text_color=gr >= 0 ? color.teal : color.red)
 
 if barstate.islast and (not timeframe.isintraday or tfSec > 900)
