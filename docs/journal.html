@@ -49,8 +49,9 @@ td.l, th.l { text-align: left; } td.notes { text-align: left; white-space: norma
   <form id="f">
     <label>Date <input name="date" type="date" required></label>
     <label>Market <select name="market"><option>MES</option><option>MYM</option><option>MNQ</option><option>ES</option><option>SOLUSD</option><option>Other</option></select></label>
-    <label>Grade <select name="grade"><option>A+</option><option>A</option><option>B</option><option>Own</option></select></label>
-    <label>Session <select name="session"><option>NY</option><option>Asia</option><option>London</option></select></label>
+    <label>Grade <select name="grade"><option>A+</option><option>A</option><option>B</option><option>Retest</option><option>Own</option></select></label>
+    <label>Time (CT) <input name="time" type="time" required></label>
+    <label>Session <select name="session" title="Filled in from the time; change it if needed"></select></label>
     <label>Side <select name="side"><option>BUY</option><option>SELL</option></select></label>
     <label>Entry <input name="entry" type="number" step="any" required></label>
     <label>Stop <input name="stop" type="number" step="any" required></label>
@@ -66,6 +67,10 @@ td.l, th.l { text-align: left; } td.notes { text-align: left; white-space: norma
   <h2>Summary</h2>
   <div class="tiles" id="tiles"></div>
 
+  <h2>By time of day</h2>
+  <p class="note" id="sessnote"></p>
+  <div class="wrap"><table id="bys"><thead><tr><th class="l">Session (CT)</th><th>Trades</th><th>Win %</th><th>Avg R</th><th>Net R</th><th>Net $</th></tr></thead><tbody></tbody></table></div>
+
   <h2>By grade</h2>
   <div class="wrap"><table id="byg"><thead><tr><th class="l">Grade</th><th>Trades</th><th>Win %</th><th>Avg R</th><th>Net R</th><th>Net $</th></tr></thead><tbody></tbody></table></div>
 
@@ -75,14 +80,14 @@ td.l, th.l { text-align: left; } td.notes { text-align: left; white-space: norma
     <label class="row"><button type="button" id="impb">Import CSV</button><input id="imp" type="file" accept=".csv" hidden></label>
   </div>
   <div class="wrap"><table id="list"><thead><tr>
-    <th class="l">Date</th><th class="l">Market</th><th class="l">Grade</th><th class="l">Side</th><th>Entry</th><th>Stop</th><th>Exit</th><th>Size</th><th>R</th><th>$</th><th class="l">Plan</th><th class="l">Notes</th><th></th>
+    <th class="l">Date</th><th class="l">Time</th><th class="l">Session</th><th class="l">Market</th><th class="l">Grade</th><th class="l">Side</th><th>Entry</th><th>Stop</th><th>Exit</th><th>Size</th><th>R</th><th>$</th><th class="l">Plan</th><th class="l">Notes</th><th></th>
   </tr></thead><tbody></tbody></table></div>
 </main>
 <script>
 const $ = s => document.querySelector(s);
 const KEY = "journal_v1";
 const PV = { MES: 5, MYM: 0.5, MNQ: 2, ES: 50, SOLUSD: 1 };
-const FIELDS = ["date", "market", "grade", "session", "side", "entry", "stop", "exit", "qty", "pv", "fees", "plan", "notes"];
+const FIELDS = ["date", "time", "market", "grade", "session", "side", "entry", "stop", "exit", "qty", "pv", "fees", "plan", "notes"];
 const store = { get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
 const t0 = store.get("theme", ""); if (t0) document.documentElement.dataset.theme = t0;
 $("#theme").onclick = e => { e.preventDefault(); const t = document.documentElement.dataset.theme === "light" ? "dark" : "light"; document.documentElement.dataset.theme = t; store.set("theme", t); };
@@ -90,7 +95,37 @@ $("#theme").onclick = e => { e.preventDefault(); const t = document.documentElem
 let trades = []; try { trades = JSON.parse(store.get(KEY, "[]")) || []; } catch { trades = []; }
 const save = () => store.set(KEY, JSON.stringify(trades));
 const f = $("#f");
+// Chicago-time windows. Asia opens an hour earlier in CT when US clocks fall back (CST, Nov-Mar).
+function cstNow(dateStr) { const d = dateStr ? new Date(dateStr + "T12:00:00") : new Date(); const jan = new Date(d.getFullYear(), 0, 1), nov = (() => { const n = new Date(d.getFullYear(), 10, 1); n.setDate(1 + (7 - n.getDay()) % 7); return n; })(), mar = (() => { const m = new Date(d.getFullYear(), 2, 1); m.setDate(1 + (7 - m.getDay()) % 7 + 7); return m; })(); return d < mar || d >= nov; }
+function sessions(dateStr) {
+  const a = cstNow(dateStr) ? 60 : 0;   // minutes earlier in CST
+  const hm = (h, m = 0) => h * 60 + m;
+  return [
+    ["CME reopen (5-7 PM)", hm(17), hm(19) - a],
+    ["Asia open: Tokyo, then Hong Kong/China", hm(19) - a, hm(21) - a],
+    ["Asia session", hm(21) - a, hm(24)],
+    ["Overnight (12-2 AM)", 0, hm(2)],
+    ["London open (2-5 AM)", hm(2), hm(5)],
+    ["Pre-market (5-8:30 AM)", hm(5), hm(8, 30)],
+    ["US open (8:30-10 AM)", hm(8, 30), hm(10)],
+    ["US midday (10 AM-1 PM)", hm(10), hm(13)],
+    ["US afternoon (1-3 PM)", hm(13), hm(15)],
+    ["US close (3-4 PM)", hm(15), hm(16)],
+    ["Closed (4-5 PM)", hm(16), hm(17)],
+  ];
+}
+const SESS = sessions().map(x => x[0]);
+f.session.innerHTML = SESS.map(n => `<option>${n}</option>`).join("");
+function sessionFor(time, dateStr) {
+  if (!time) return "";
+  const [h, m] = time.split(":").map(Number), t = h * 60 + m;
+  const hit = sessions(dateStr).find(([, a, b]) => t >= a && t < b);
+  return hit ? hit[0] : "CME reopen (5-7 PM)";
+}
+f.time.oninput = f.date.oninput = () => { const n = sessionFor(f.time.value, f.date.value); if (n) f.session.value = n; };
+$("#sessnote").textContent = cstNow() ? "Times are Chicago time. US clocks are on standard time now, so Tokyo opens 6 PM and Hong Kong/China 7:30 PM CT." : "Times are Chicago time. Tokyo opens 7 PM and Hong Kong/China 8:30 PM CT (one hour earlier after US clocks fall back on Nov 1).";
 f.date.valueAsDate = new Date();
+f.time.value = new Date().toTimeString().slice(0, 5); f.time.oninput();
 f.market.onchange = () => { if (PV[f.market.value]) f.pv.value = PV[f.market.value]; };
 
 function calc(t) {
@@ -111,6 +146,7 @@ f.onsubmit = e => {
   trades.push({ id: Date.now(), ...Object.fromEntries(new FormData(f)) });
   save(); render();
   ["entry", "stop", "exit", "notes"].forEach(k => f[k].value = ""); $("#preview").textContent = "";
+  f.time.value = new Date().toTimeString().slice(0, 5); f.time.oninput();
 };
 
 function group(list) {
@@ -127,7 +163,14 @@ function render() {
     ["Net $", `<span class="${all.usd >= 0 ? "pos" : "neg"}">${money(all.usd)}</span>`],
     ["Off-plan trades", `${planNo.n} <small class="${planNo.usd >= 0 ? "pos" : "neg"}">${planNo.n ? money(planNo.usd) : ""}</small>`],
   ].map(([k, v]) => `<div class="tile"><span>${k}</span><b>${v}</b></div>`).join("");
-  $("#byg tbody").innerHTML = ["A+", "A", "B", "Own"].map(g => {
+  const used = SESS.filter(n => trades.some(t => t.session === n)).concat([...new Set(trades.map(t => t.session).filter(n => n && !SESS.includes(n)))]);
+  $("#bys tbody").innerHTML = used.length ? used.map(n => {
+    const x = group(trades.filter(t => t.session === n));
+    return `<tr><td class="l">${esc(n)}</td><td>${x.n}</td><td>${Math.round(x.win * 100)}%</td>
+      <td class="${x.avgR >= 0 ? "pos" : "neg"}">${x.avgR.toFixed(2)}</td><td class="${x.netR >= 0 ? "pos" : "neg"}">${x.netR.toFixed(1)}</td>
+      <td class="${x.usd >= 0 ? "pos" : "neg"}">${money(x.usd)}</td></tr>`;
+  }).join("") : `<tr><td colspan="6" class="l" style="color:var(--muted)">No trades yet.</td></tr>`;
+  $("#byg tbody").innerHTML = ["A+", "A", "B", "Retest", "Own"].map(g => {
     const x = group(trades.filter(t => t.grade === g));
     return `<tr><td class="l">${g}</td><td>${x.n}</td><td>${x.n ? Math.round(x.win * 100) + "%" : "-"}</td>
       <td class="${x.avgR >= 0 ? "pos" : "neg"}">${x.n ? x.avgR.toFixed(2) : "-"}</td><td class="${x.netR >= 0 ? "pos" : "neg"}">${x.netR.toFixed(1)}</td>
@@ -136,11 +179,11 @@ function render() {
   const rows = [...trades].sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.id - a.id);
   $("#list tbody").innerHTML = rows.length ? rows.map(t => {
     const c = calc(t);
-    return `<tr><td class="l">${esc(t.date)}</td><td class="l">${esc(t.market)}</td><td class="l">${esc(t.grade)}</td><td class="l">${esc(t.side)}</td>
+    return `<tr><td class="l">${esc(t.date)}</td><td class="l">${esc(t.time)}</td><td class="l">${esc(t.session)}</td><td class="l">${esc(t.market)}</td><td class="l">${esc(t.grade)}</td><td class="l">${esc(t.side)}</td>
       <td>${esc(t.entry)}</td><td>${esc(t.stop)}</td><td>${esc(t.exit)}</td><td>${esc(t.qty)}</td>
       <td class="${c.r >= 0 ? "pos" : "neg"}">${c.r.toFixed(2)}</td><td class="${c.usd >= 0 ? "pos" : "neg"}">${money(c.usd)}</td>
       <td class="l">${esc(t.plan)}</td><td class="notes">${esc(t.notes)}</td><td><button class="x" data-id="${t.id}" title="Delete">✕</button></td></tr>`;
-  }).join("") : `<tr><td colspan="13"><div class="empty">No trades yet.</div></td></tr>`;
+  }).join("") : `<tr><td colspan="15"><div class="empty">No trades yet.</div></td></tr>`;
 }
 $("#list").onclick = e => {
   const id = e.target.dataset?.id; if (!id) return;
