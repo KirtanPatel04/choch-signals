@@ -411,3 +411,5 @@ alertcondition(sig == -1, "SELL", "{{ticker}} SELL: limit {{plot(\"Entry\")}}, s
 
 if barstate.islast and (not timeframe.isintraday or tfSec > 900)
     label.new(bar_index, high, "CHoCH Setups is built for 1, 5 or 15-minute charts", color=color.orange, textcolor=color.black)
+if barstate.islast and not (root == "MES" or root == "MNQ" or root == "MYM" or root == "MGC")
+    label.new(bar_index, low, "Tested on MES1!, MNQ1!, MYM1! and MGC1! futures only.\n" + syminfo.ticker + ": point scale, ticks and contract sizes may be wrong.", style=label.style_label_up, color=color.orange, textcolor=color.black)
