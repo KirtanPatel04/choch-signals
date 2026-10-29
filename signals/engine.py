@@ -84,8 +84,10 @@ def _in_window(m: int, s: dict) -> bool:
     return m > s["start"] or m <= s["end"]
 
 
-def find_signals(d: pd.DataFrame, tick: float, scale: float = 1.0, sessions=("NY",)) -> list[dict]:
-    """All A+ and B signals in `d` (1-minute OHLC, tz America/Chicago), each followed to its result."""
+def find_signals(d: pd.DataFrame, tick: float, scale: float = 1.0, sessions=("NY",), approach: int = 0) -> list[dict]:
+    """All A+ and B signals in `d` (1-minute OHLC, tz America/Chicago), each followed to its result.
+    approach > 0: the push must be a real move INTO the level - none of the `approach` candles before the push
+    went past it (the Pine indicator uses 15 on 1M; 0 = off)."""
     d = d[~d.index.duplicated()].sort_index()
     o, h, l, c = (d[k].to_numpy() for k in ("open", "high", "low", "close"))
     idx = d.index
@@ -121,6 +123,10 @@ def find_signals(d: pd.DataFrame, tick: float, scale: float = 1.0, sessions=("NY
             continue
         k = i - SWEEP + (int(np.argmin(l[i - SWEEP:i + 1])) if side == 1 else int(np.argmax(h[i - SWEEP:i + 1])))
         ext, tk = (l[k] if side == 1 else h[k]), idx[k]
+        if approach:
+            lb = max(k - approach, 0)
+            if k == lb or ((l[lb:k].min() < l[k]) if side == 1 else (h[lb:k].max() > h[k])):
+                continue
         m = (lv_w <= tk) & (tk - lv_w <= LOOK) & (np.abs(lv_px - ext) <= near)
         if not (m & (lv_k == 1)).any() or (m & (lv_k == 2)).any():
             continue
