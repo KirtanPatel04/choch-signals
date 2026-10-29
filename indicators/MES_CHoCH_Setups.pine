@@ -202,12 +202,15 @@ cLoss = color.rgb(242, 54, 69)
 // position box look: res 2 = pending limit, 1 = target hit, -1 = stopped, 0 = live (filled) or never filled
 f_boxLook(int res) =>
     bool pend = res == 2
+    // too big for your risk (the test skipped these): gray, so it is clearly not a trade to take
+    cW = tQty >= 1 ? cWin : color.gray
+    cL = tQty >= 1 ? cLoss : color.gray
     box.set_border_style(bxT, pend ? line.style_dashed : line.style_solid)
     box.set_border_style(bxS, pend ? line.style_dashed : line.style_solid)
-    box.set_border_color(bxT, color.new(cWin, pend ? 40 : res == -1 ? 35 : 0))
-    box.set_border_color(bxS, color.new(cLoss, pend ? 40 : res == 1 ? 35 : 0))
-    box.set_bgcolor(bxT, color.new(cWin, pend ? 85 : res == 1 ? 55 : res == -1 ? 82 : 75))
-    box.set_bgcolor(bxS, color.new(cLoss, pend ? 85 : res == -1 ? 55 : res == 1 ? 82 : 75))
+    box.set_border_color(bxT, color.new(cW, pend ? 40 : res == -1 ? 35 : 0))
+    box.set_border_color(bxS, color.new(cL, pend ? 40 : res == 1 ? 35 : 0))
+    box.set_bgcolor(bxT, color.new(cW, pend ? 85 : res == 1 ? 55 : res == -1 ? 82 : 75))
+    box.set_bgcolor(bxS, color.new(cL, pend ? 85 : res == -1 ? 55 : res == 1 ? 82 : 75))
 
 // trade report: one alert per event (filled, target, stop, closed, cancelled) as a JSON line, so the day's
 // results can be logged from TradingView's alert log or a webhook and compared with the backtest
@@ -366,7 +369,7 @@ if canSig and side != 0 and trd * side > 0 and inSess and barstate.isconfirmed a
                 lbT := label.new(bar_index + 3, tgt, "Target " + str.tostring(rrBox) + "R " + str.tostring(tgt, format.mintick) + " (" + str.tostring(math.round(stopTk * rrBox)) + " ticks)", style=label.style_label_left, color=cWin, textcolor=color.white, size=size.small)
             if showPos
                 ctrs   = math.max(qty, 1)
-                tgtTxt = (side == 1 ? "LONG " : "SHORT ") + grade + "  ·  qty " + str.tostring(ctrs) + "  ·  R:R " + str.tostring(rrBox) + "\nTarget " + str.tostring(tgt, format.mintick) + "  (" + str.tostring(math.round(stopTk * rrBox)) + " ticks)  +$" + str.tostring(ctrs * (perCtr * rrBox - comm), "#")
+                tgtTxt = (qty < 1 ? "SKIP: 1 contract risks $" + str.tostring(perCtr, "#") + ", more than " + str.tostring(riskPct) + "% ($" + str.tostring(riskUsd, "#") + ")\n" : "") + (side == 1 ? "LONG " : "SHORT ") + grade + "  ·  qty " + str.tostring(ctrs) + "  ·  R:R " + str.tostring(rrBox) + "\nTarget " + str.tostring(tgt, format.mintick) + "  (" + str.tostring(math.round(stopTk * rrBox)) + " ticks)  +$" + str.tostring(ctrs * (perCtr * rrBox - comm), "#")
                 stpTxt = "Stop " + str.tostring(stop, format.mintick) + "  (" + str.tostring(stopTk) + " ticks)  -$" + str.tostring(ctrs * (perCtr + syminfo.mintick * syminfo.pointvalue + comm), "#") + "\nEntry " + str.tostring(entry, format.mintick) + " (limit)"
                 // starts on the next candle (the first one the limit can fill on), dashed until filled
                 bxT := box.new(bar_index + 1, math.max(entry, tgt), bar_index + 3, math.min(entry, tgt), text=tgtTxt, text_size=size.small, text_color=color.white, text_halign=text.align_left, text_valign=side == 1 ? text.align_top : text.align_bottom)
