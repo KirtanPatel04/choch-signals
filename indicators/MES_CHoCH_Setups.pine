@@ -196,6 +196,7 @@ var label  lbT = na
 var box    bxT = na
 var box    bxS = na
 
+minW  = 8      // minimum width of the position boxes, in candles
 // TradingView's Long / Short Position colors
 cWin  = color.rgb(8, 153, 129)
 cLoss = color.rgb(242, 54, 69)
@@ -221,9 +222,12 @@ f_report(string ev, float px) =>
 // end of a trade: stop the lines here and mark what happened (res: 1 target, -1 stop, 0 other)
 f_end(string what, color c, float px, int res, string ev) =>
     f_report(ev, px)
+    // boxes and lines stay at least minW candles wide so a quick trade is still readable;
+    // the result marker sits on the real exit candle
+    xEnd = math.max(bar_index, (tFilled ? tFilledBar : tBar + 1) + minW)
     if showPos
-        box.set_right(bxT, bar_index)
-        box.set_right(bxS, bar_index)
+        box.set_right(bxT, xEnd)
+        box.set_right(bxS, xEnd)
         if tFilled
             f_boxLook(res)
         else
@@ -233,12 +237,12 @@ f_end(string what, color c, float px, int res, string ev) =>
             box.set_bgcolor(bxT, color.new(color.gray, 85))
             box.set_bgcolor(bxS, color.new(color.gray, 85))
     if showRR
-        line.set_x2(lnE, bar_index)
-        line.set_x2(lnS, bar_index)
-        line.set_x2(lnT, bar_index)
-        label.set_x(lbE, bar_index)
-        label.set_x(lbS, bar_index)
-        label.set_x(lbT, bar_index)
+        line.set_x2(lnE, xEnd)
+        line.set_x2(lnS, xEnd)
+        line.set_x2(lnT, xEnd)
+        label.set_x(lbE, xEnd)
+        label.set_x(lbS, xEnd)
+        label.set_x(lbT, xEnd)
         label.new(bar_index, px, what, style=label.style_label_left, color=c, textcolor=color.white, size=size.small)
 if timeframe.change("D")
     dayDone := false
@@ -291,17 +295,18 @@ if tSide != 0 and barstate.isconfirmed and bar_index > tBar
                 lastRes := "target hit"
                 f_end("Target hit +" + str.tostring(rrBox) + "R", cWin, tTgt, 1, "target")
                 tSide := 0
-// keep the drawings running to the latest candle while the trade is working
+// keep the drawings running to the latest candle while the trade is working (at least minW candles wide)
+xLive = math.max(bar_index + 3, (tFilled ? tFilledBar : tBar + 1) + minW)
 if tSide != 0 and showPos
-    box.set_right(bxT, bar_index + 3)
-    box.set_right(bxS, bar_index + 3)
+    box.set_right(bxT, xLive)
+    box.set_right(bxS, xLive)
 if tSide != 0 and showRR
-    line.set_x2(lnE, bar_index + 3)
-    line.set_x2(lnS, bar_index + 3)
-    line.set_x2(lnT, bar_index + 3)
-    label.set_x(lbE, bar_index + 3)
-    label.set_x(lbS, bar_index + 3)
-    label.set_x(lbT, bar_index + 3)
+    line.set_x2(lnE, xLive)
+    line.set_x2(lnS, xLive)
+    line.set_x2(lnT, xLive)
+    label.set_x(lbE, xLive)
+    label.set_x(lbS, xLive)
+    label.set_x(lbT, xLive)
 
 // barstate.isconfirmed: only signal once the candle has closed, like the backtest
 canSig = tSide == 0 and not (firstOnly and dayDone)
@@ -360,20 +365,20 @@ if canSig and side != 0 and trd * side > 0 and inSess and barstate.isconfirmed a
             // label on the far side of the candle from the limit (below for a short, above for a long) so the entry stays visible
             label.new(bar_index, side == 1 ? high : low, txt, style=side == 1 ? label.style_label_down : label.style_label_up, color=color.new(side == 1 ? cWin : cLoss, fade), textcolor=color.white, size=size.normal)
             if showRR
-                lnE := line.new(bar_index, entry, bar_index + 3, entry, color=color.blue, width=2)
-                lnS := line.new(bar_index, stop, bar_index + 3, stop, color=cLoss, width=2)
-                lnT := line.new(bar_index, tgt, bar_index + 3, tgt, color=cWin, width=2)
+                lnE := line.new(bar_index, entry, bar_index + 1 + minW, entry, color=color.blue, width=2)
+                lnS := line.new(bar_index, stop, bar_index + 1 + minW, stop, color=cLoss, width=2)
+                lnT := line.new(bar_index, tgt, bar_index + 1 + minW, tgt, color=cWin, width=2)
                 qtyTxt = qty >= 1 ? " x" + str.tostring(qty) : ""
-                lbE := label.new(bar_index + 3, entry, "Entry " + str.tostring(entry, format.mintick) + qtyTxt, style=label.style_label_left, color=color.blue, textcolor=color.white, size=size.small)
-                lbS := label.new(bar_index + 3, stop, "Stop " + str.tostring(stop, format.mintick) + " (" + str.tostring(stopTk) + " ticks)", style=label.style_label_left, color=cLoss, textcolor=color.white, size=size.small)
-                lbT := label.new(bar_index + 3, tgt, "Target " + str.tostring(rrBox) + "R " + str.tostring(tgt, format.mintick) + " (" + str.tostring(math.round(stopTk * rrBox)) + " ticks)", style=label.style_label_left, color=cWin, textcolor=color.white, size=size.small)
+                lbE := label.new(bar_index + 1 + minW, entry, "Entry " + str.tostring(entry, format.mintick) + qtyTxt, style=label.style_label_left, color=color.blue, textcolor=color.white, size=size.small)
+                lbS := label.new(bar_index + 1 + minW, stop, "Stop " + str.tostring(stop, format.mintick) + " (" + str.tostring(stopTk) + " ticks)", style=label.style_label_left, color=cLoss, textcolor=color.white, size=size.small)
+                lbT := label.new(bar_index + 1 + minW, tgt, "Target " + str.tostring(rrBox) + "R " + str.tostring(tgt, format.mintick) + " (" + str.tostring(math.round(stopTk * rrBox)) + " ticks)", style=label.style_label_left, color=cWin, textcolor=color.white, size=size.small)
             if showPos
                 ctrs   = math.max(qty, 1)
                 tgtTxt = (qty < 1 ? "SKIP: 1 contract risks $" + str.tostring(perCtr, "#") + ", more than " + str.tostring(riskPct) + "% ($" + str.tostring(riskUsd, "#") + ")\n" : "") + (side == 1 ? "LONG " : "SHORT ") + grade + "  ·  qty " + str.tostring(ctrs) + "  ·  R:R " + str.tostring(rrBox) + "\nTarget " + str.tostring(tgt, format.mintick) + "  (" + str.tostring(math.round(stopTk * rrBox)) + " ticks)  +$" + str.tostring(ctrs * (perCtr * rrBox - comm), "#")
                 stpTxt = "Stop " + str.tostring(stop, format.mintick) + "  (" + str.tostring(stopTk) + " ticks)  -$" + str.tostring(ctrs * (perCtr + syminfo.mintick * syminfo.pointvalue + comm), "#") + "\nEntry " + str.tostring(entry, format.mintick) + " (limit)"
                 // starts on the next candle (the first one the limit can fill on), dashed until filled
-                bxT := box.new(bar_index + 1, math.max(entry, tgt), bar_index + 3, math.min(entry, tgt), text=tgtTxt, text_size=size.small, text_color=color.white, text_halign=text.align_left, text_valign=side == 1 ? text.align_top : text.align_bottom)
-                bxS := box.new(bar_index + 1, math.max(entry, stop), bar_index + 3, math.min(entry, stop), text=stpTxt, text_size=size.small, text_color=color.white, text_halign=text.align_left, text_valign=side == 1 ? text.align_bottom : text.align_top)
+                bxT := box.new(bar_index + 1, math.max(entry, tgt), bar_index + 1 + minW, math.min(entry, tgt), text=tgtTxt, text_size=size.small, text_color=color.white, text_halign=text.align_left, text_valign=side == 1 ? text.align_top : text.align_bottom)
+                bxS := box.new(bar_index + 1, math.max(entry, stop), bar_index + 1 + minW, math.min(entry, stop), text=stpTxt, text_size=size.small, text_color=color.white, text_halign=text.align_left, text_valign=side == 1 ? text.align_bottom : text.align_top)
                 f_boxLook(2)
             if showWhy
                 if not na(lvl)
