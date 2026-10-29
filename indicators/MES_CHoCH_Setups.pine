@@ -204,10 +204,10 @@ f_boxLook(int res) =>
     bool pend = res == 2
     box.set_border_style(bxT, pend ? line.style_dashed : line.style_solid)
     box.set_border_style(bxS, pend ? line.style_dashed : line.style_solid)
-    box.set_border_color(bxT, color.new(cWin, pend ? 50 : res == -1 ? 70 : 0))
-    box.set_border_color(bxS, color.new(cLoss, pend ? 50 : res == 1 ? 70 : 0))
-    box.set_bgcolor(bxT, color.new(cWin, pend ? 92 : res == 1 ? 55 : res == -1 ? 92 : 80))
-    box.set_bgcolor(bxS, color.new(cLoss, pend ? 92 : res == -1 ? 55 : res == 1 ? 92 : 80))
+    box.set_border_color(bxT, color.new(cWin, pend ? 40 : res == -1 ? 35 : 0))
+    box.set_border_color(bxS, color.new(cLoss, pend ? 40 : res == 1 ? 35 : 0))
+    box.set_bgcolor(bxT, color.new(cWin, pend ? 85 : res == 1 ? 55 : res == -1 ? 82 : 75))
+    box.set_bgcolor(bxS, color.new(cLoss, pend ? 85 : res == -1 ? 55 : res == 1 ? 82 : 75))
 
 // trade report: one alert per event (filled, target, stop, closed, cancelled) as a JSON line, so the day's
 // results can be logged from TradingView's alert log or a webhook and compared with the backtest
@@ -225,10 +225,10 @@ f_end(string what, color c, float px, int res, string ev) =>
             f_boxLook(res)
         else
             // limit never filled: no position was ever on, gray it out
-            box.set_border_color(bxT, color.new(color.gray, 60))
-            box.set_border_color(bxS, color.new(color.gray, 60))
-            box.set_bgcolor(bxT, color.new(color.gray, 92))
-            box.set_bgcolor(bxS, color.new(color.gray, 92))
+            box.set_border_color(bxT, color.new(color.gray, 40))
+            box.set_border_color(bxS, color.new(color.gray, 40))
+            box.set_bgcolor(bxT, color.new(color.gray, 85))
+            box.set_bgcolor(bxS, color.new(color.gray, 85))
     if showRR
         line.set_x2(lnE, bar_index)
         line.set_x2(lnS, bar_index)
