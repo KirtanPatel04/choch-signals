@@ -62,7 +62,7 @@ def take(sigs: list[dict], balance: float, pct: float) -> None:
             s["taken"], s["why"] = False, f"not taken: {busy[g][1]} limit / trade still working"
             continue
         end = s.get("exit_time")
-        busy[g] = (end if end is not None else pd.Timestamp.max.tz_localize(E.TZ), s["market"])
+        busy[g] = (end if end is not None else pd.Timestamp("2200-01-01", tz=E.TZ), s["market"])
         if s["status"] in ("no fill", "waiting"):
             s["taken"] = None                    # an order you place, but nothing happens unless it fills
             s["why"] = "limit never filled (cancelled)" if s["status"] == "no fill" else "limit still working"
