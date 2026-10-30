@@ -93,6 +93,34 @@ def plan(sigs: list[dict], groups: list[tuple], max_day: int) -> list[dict]:
     return taken
 
 
+def half_at_1r(D: dict, s: dict) -> dict:
+    """Re-follow a filled trade: at +1R close half (limit, no slippage) and move the rest's stop to the entry.
+    Same candle order as the engine: stop first, then 1R, then target; 3:40 close at the open, 1 tick worse."""
+    d, tick, side = D[s["market"]], MK[s["market"]][0], s["side"]
+    o, h, l = (d[k].to_numpy() for k in ("open", "high", "low"))
+    idx = d.index
+    f = idx.get_loc(s["fill_time"])
+    e = o[f] if ((o[f] < s["entry"]) if side == 1 else (o[f] > s["entry"])) else s["entry"]
+    r1 = abs(e - s["stop"])
+    one, tg = e + side * r1, e + side * E.TARGET_R * r1
+    flat_t = s["time"].normalize() + pd.Timedelta(minutes=E.SESSIONS["NY"]["flat"])
+    st, hit = s["stop"], False
+    for j in range(f, len(d)):
+        if idx[j] >= flat_t:
+            return dict(s, half_hit=True, r_rest=(o[j] - side * tick - e) * side / r1, status="closed", exit_time=idx[j])
+        if (l[j] <= st) if side == 1 else (h[j] >= st):
+            gap = ((o[j] < st) if side == 1 else (o[j] > st)) and j != f
+            px = (o[j] if gap else st) - side * tick
+            if not hit:
+                return dict(s, half_hit=False)                 # stopped before 1R: same as the plain trade
+            return dict(s, half_hit=True, r_rest=(px - e) * side / r1, status="breakeven", exit_time=idx[j])
+        if not hit and ((h[j] >= one) if side == 1 else (l[j] <= one)):
+            hit, st = True, e
+        if hit and ((h[j] >= tg) if side == 1 else (l[j] <= tg)):
+            return dict(s, half_hit=True, r_rest=E.TARGET_R, status="target", exit_time=idx[j])
+    return dict(s, half_hit=False)
+
+
 def account(trades: list[dict], start: float, pct: float) -> list[dict]:
     """Size each trade from the balance when it is placed; balance changes in exit order."""
     bal, rows = start, []
@@ -103,7 +131,12 @@ def account(trades: list[dict], start: float, pct: float) -> list[dict]:
         if n < 1:
             rows.append(dict(s, n=0, usd=0.0, bal=bal, skipped=True))
             continue
-        usd = s["r"] * per * n - comm * n
+        k = n // 2 if s.get("half_hit") else 0              # 1 contract can't be split: it runs the plain trade
+        if k:
+            usd = (k * 1.0 + (n - k) * s["r_rest"]) * per - comm * n
+            s = dict(s, r=(k * 1.0 + (n - k) * s["r_rest"]) / n)
+        else:
+            usd = s["r"] * per * n - comm * n
         bal += usd
         rows.append(dict(s, n=n, usd=usd, bal=bal, skipped=False))
     return rows
@@ -132,12 +165,12 @@ def report(D: dict, rows: list[dict], a, groups: list[tuple], out: Path) -> None
         if not s["skipped"]:
             nth[day] = nth.get(day, 0) + 1
         risked = s["n"] * s["risk_pts"] * pv
-        status = "skipped" if s["skipped"] else s["status"] if s["status"] in ("target", "stop") else "closed"
+        status = "skipped" if s["skipped"] else s["status"] if s["status"] in ("target", "stop", "breakeven") else "closed"
         setups.append(dict(
             n=k + 1, market=m, desc=MK[m][4], tier=s["tier"], nth=nth.get(day, 1), day=day,
             time=s["time"].strftime("%a %b %d  %H:%M"), side="Long" if side == 1 else "Short",
             entry=s["entry"], stop=s["stop"], target=s["target"], risk=s["risk_pts"], strength=round(s["strength"], 2),
-            status=status, outcome={"target": "target", "stop": "stop", "closed": "closed 3:40"}.get(status, status),
+            status=status, outcome={"target": "target", "stop": "stop", "closed": "closed 3:40", "breakeven": "half at 1R, rest stopped at entry"}.get(status, status),
             r=round(s["usd"] / risked, 2) if risked else 0, usd=round(s["usd"], 2), whole=s["n"], risked=round(risked, 2),
             bal=round(s["bal"], 2), pv=pv, tick=tick, dec=0 if tick >= 1 else max(0, min(5, math.ceil(-math.log10(tick)))),
             ext=ext, level=float(near.px.iloc[(near.px - ext).abs().argmin()]) if len(near) else None,
@@ -164,7 +197,7 @@ def report(D: dict, rows: list[dict], a, groups: list[tuple], out: Path) -> None
                  risk=f"{a.risk_pct:g}% of balance", max_day=len(groups) * a.max_day, tiers=tiers + ", fixed rules",
                  markets=" + ".join("/".join(g) for g in groups) + f", {a.max_day} a day each",
                  by_mkt={m: summ([x for x in traded if x["market"] == m]) for g in groups for m in g},
-                 start=a.start_balance, end=round(max(rows, key=lambda r: r["exit_time"])["bal"], 2), half=False,
+                 start=a.start_balance, end=round(max(rows, key=lambda r: r["exit_time"])["bal"], 2), half=a.half_at_1r,
                  span=f"{pd.Timestamp(days[0]):%b %d} – {pd.Timestamp(days[-1]):%b %d, %Y}", other="", other_label="")
     html = (Path(__file__).with_name("account_study_template.html").read_text()
             .replace("__BARS__", json.dumps(bars)).replace("__SETUPS__", json.dumps(setups))
@@ -186,6 +219,7 @@ def main() -> None:
     p.add_argument("--approach", type=int, default=15, help="candles before the push that must not go past it (0 = off)")
     p.add_argument("--from", dest="start", help="first day, e.g. 2026-09-29")
     p.add_argument("--to", dest="end", help="last day, e.g. 2026-10-28")
+    p.add_argument("--half-at-1r", action="store_true", help="close half at +1R and move the stop to the entry")
     p.add_argument("--out", default="account_study.html", help="chart page written to reports/")
     p.add_argument("--no-open", action="store_true", help="don't open the chart page in a browser")
     a = p.parse_args()
@@ -202,16 +236,19 @@ def main() -> None:
     sigs = find(D, tuple(a.tiers.split(",")), a.ab_after, a.approach)
     if a.start:
         sigs = [s for s in sigs if s["time"] >= pd.Timestamp(a.start, tz=E.TZ)]
-    rows = account(plan(sigs, groups, a.max_day), a.start_balance, a.risk_pct / 100)
+    taken = plan(sigs, groups, a.max_day)
+    if a.half_at_1r:
+        taken = [half_at_1r(D, s) for s in taken]
+    rows = account(taken, a.start_balance, a.risk_pct / 100)
 
     span = " - ".join(f"{D['MES'].index[k]:%b %d %H:%M}" for k in (0, -1))
     print(f"\nMES bars {span} · groups {' | '.join('/'.join(g) for g in groups)} · {a.tiers}"
-          f"{f' (A/B from {a.ab_after:g}:00)' if a.ab_after else ''} · {a.risk_pct:g}% risk · 2R\n")
+          f"{f' (A/B from {a.ab_after:g}:00)' if a.ab_after else ''} · {a.risk_pct:g}% risk · 2R{' · half at 1R, stop to entry' if a.half_at_1r else ''}\n")
     print(f"{'#':>3}  {'signal (CT)':17} {'mkt':4} {'gr':2} {'side':5} {'entry':>10} {'stop':>10} {'target':>10}"
           f"  {'result':7} {'R':>6} {'ct':>3} {'P/L':>8} {'balance':>9}")
     for k, r in enumerate(sorted(rows, key=lambda x: x["time"]), 1):
         dec = 0 if MK[r["market"]][0] >= 1 else 2
-        res = "skipped" if r["skipped"] else {"target": "target", "stop": "stop"}.get(r["status"], "3:40")
+        res = "skipped" if r["skipped"] else {"target": "target", "stop": "stop", "breakeven": "BE"}.get(r["status"], "3:40")
         print(f"{k:3d}  {r['time']:%a %b %d %H:%M} {r['market']:4} {r['tier']:2} {'Buy' if r['side'] == 1 else 'Sell':5}"
               f" {r['entry']:10.{dec}f} {r['stop']:10.{dec}f} {r['target']:10.{dec}f}  {res:7} {r['r']:+6.2f}"
               f" {r['n']:3d} {r['usd']:+8.0f} {r['bal']:9,.0f}")
