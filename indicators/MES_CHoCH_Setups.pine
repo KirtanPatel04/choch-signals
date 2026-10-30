@@ -21,6 +21,9 @@
 //   Not the same: the test shared one first-trade-of-the-day across MES/MNQ/MYM; each chart here counts its own.
 //   The 11:00 cutoff was picked after seeing the results (10:30 gave $2,356); "any time" gave $3,694.
 //   1M was best; 5M made about half as much with deeper drawdowns; 15M about broke even.
+// Exits (default): with 2+ contracts, close half (rounded down) at +1R and move the rest's stop to the entry; the rest
+//   runs to the target. 1 contract runs to the target or stop. Sep 29 - Oct 29 at 15%: $8,396, worst drop -26%
+//   (full 2R exit: $10,798, -38%). Re-run with tools/account_study.py --half-at-1r. One month of data.
 // Each signal draws a position tool (green profit zone, red risk zone, like TradingView's Long / Short Position),
 // the 15M level, the push, the CHoCH candle and entry / stop / target lines that follow the
 // trade live (Filled, Target hit, Stopped). The label shows the stop and target in ticks, contracts for your risk, and the CHoCH candle's volume
@@ -46,12 +49,11 @@ riskPct  = input.float(15, "Risk per trade (% of balance)", minval=0.1, maxval=1
 showRR   = input.bool(true, "Draw entry / stop / target lines", tooltip="Lines with prices that follow the trade live until it ends (target, stop, 3:40 PM or limit cancelled), plus Filled / Target hit / Stopped markers.")
 showPos  = input.bool(true, "Draw position tool (like TradingView's Long / Short Position)", tooltip="Green profit zone (entry to target) and red risk zone (entry to stop) with prices, ticks, $ and quantity. Follows the trade live until it ends.")
 showWhy  = input.bool(true, "Mark the setup (15M level, push, CHoCH candle)")
-showHalf = input.bool(false, "Draw +1R line (take half off, stop to breakeven)", tooltip="Off = full exit at the target, like the $6,512 test. Half off at 1R gave a smoother ride on the indices but less on gold.")
+halfOn   = input.bool(true, "Take half at +1R, move stop to entry (2+ contracts)", tooltip="On: with 2+ contracts, close half (rounded down) when price reaches +1R and move the rest's stop to your entry; the rest runs to the target. 1 contract runs to the target or stop. Sep 29 - Oct 29 at 15%: $8,396, worst drop -26% (full 2R: $10,798, -38%). Off = full exit at the target, like the $6,512 test.")
 showCh   = input.bool(true, "Draw every CHoCH line", tooltip="Dashed line from the swing to the candle that closed through it, when the break flips direction. These are all changes of character, not just signals.")
 showTbl  = input.bool(true, "Show status table")
 rrBox    = input.float(2.0, "Target (R)", minval=0.5, tooltip="2R tested best.")
 maxWait  = input.int(10, "Cancel limit if not filled after (bars)", minval=1)
-boxBars  = input.int(15, "+1R line length (bars)", minval=5)
 minStop  = input.float(2.0, "Min stop (MES pts)", minval=0, tooltip="Scaled automatically on other markets.")
 ptScIn   = input.float(0, "Point scale vs MES (0 = auto)", minval=0, tooltip="Auto: MES/ES 1, MNQ/NQ 6, MYM/YM 6.667, MGC/GC 0.667, M2K/RTY 0.44 (typical 1-minute candle size compared with MES, Sep - Oct 2026).")
 
@@ -186,6 +188,12 @@ var string tGrade  = ""
 var string lastRes = ""
 var float  tQty    = na
 var float  tFill   = na
+var float  tRisk   = na      // fill to the original stop, so R stays right after the stop moves to the entry
+var float  tOne    = na      // +1R price
+var int    tHalfQ  = 0       // contracts to close at +1R (0 = run the whole position)
+var bool   tHalfDone = false
+var line   lnH = na
+var label  lbH = na
 var int    tFilledBar = na
 var line   lnE = na
 var line   lnS = na
@@ -213,11 +221,17 @@ f_boxLook(int res) =>
     box.set_bgcolor(bxT, color.new(cW, pend ? 85 : res == 1 ? 55 : res == -1 ? 82 : 75))
     box.set_bgcolor(bxS, color.new(cL, pend ? 85 : res == -1 ? 55 : res == 1 ? 82 : 75))
 
+// R of the whole position for an exit of the rest at rRest: the half closed at +1R counts once it is done
+f_blend(float rRest) =>
+    tHalfDone ? (tHalfQ * 1.0 + (tQty - tHalfQ) * rRest) / tQty : rRest
+f_rTxt(float r) =>
+    str.tostring(r, "+#.##;-#.##") + "R"
+
 // trade report: one alert per event (filled, target, stop, closed, cancelled) as a JSON line, so the day's
 // results can be logged from TradingView's alert log or a webhook and compared with the backtest
 f_report(string ev, float px) =>
-    r = ev == "filled" or ev == "cancelled" ? 0.0 : (px - tFill) * tSide / math.abs(tFill - tStop)
-    alert('{"type":"choch_result","symbol":"' + syminfo.ticker + '","tf":"' + timeframe.period + '","time":"' + str.format_time(time, "yyyy-MM-dd HH:mm", "America/Chicago") + '","grade":"' + tGrade + '","side":"' + (tSide == 1 ? "long" : "short") + '","event":"' + ev + '","entry":' + str.tostring(tEntry) + ',"stop":' + str.tostring(tStop) + ',"target":' + str.tostring(tTgt) + ',"fill":' + str.tostring(tFill) + ',"price":' + str.tostring(px) + ',"r":' + str.tostring(r, "#.##") + ',"qty":' + str.tostring(tQty) + ',"usd":' + str.tostring(ev == "filled" or ev == "cancelled" ? 0.0 : r * math.abs(tFill - tStop) * syminfo.pointvalue * tQty - comm * tQty, "#.##") + '}', alert.freq_once_per_bar_close)
+    r = ev == "filled" or ev == "cancelled" ? 0.0 : ev == "half" ? 1.0 : f_blend((px - tFill) * tSide / tRisk)
+    alert('{"type":"choch_result","symbol":"' + syminfo.ticker + '","tf":"' + timeframe.period + '","time":"' + str.format_time(time, "yyyy-MM-dd HH:mm", "America/Chicago") + '","grade":"' + tGrade + '","side":"' + (tSide == 1 ? "long" : "short") + '","event":"' + ev + '","entry":' + str.tostring(tEntry) + ',"stop":' + str.tostring(tStop) + ',"target":' + str.tostring(tTgt) + ',"fill":' + str.tostring(tFill) + ',"price":' + str.tostring(px) + ',"r":' + str.tostring(r, "#.##") + ',"qty":' + str.tostring(tQty) + ',"usd":' + str.tostring(ev == "filled" or ev == "cancelled" ? 0.0 : (ev == "half" ? r * tRisk * syminfo.pointvalue * tHalfQ : r * tRisk * syminfo.pointvalue * tQty - comm * tQty), "#.##") + '}', alert.freq_once_per_bar_close)
 
 // end of a trade: stop the lines here and mark what happened (res: 1 target, -1 stop, 0 other)
 f_end(string what, color c, float px, int res, string ev) =>
@@ -243,6 +257,9 @@ f_end(string what, color c, float px, int res, string ev) =>
         label.set_x(lbE, xEnd)
         label.set_x(lbS, xEnd)
         label.set_x(lbT, xEnd)
+        if not na(lnH)
+            line.set_x2(lnH, xEnd)
+            label.set_x(lbH, xEnd)
         label.new(bar_index, px, what, style=label.style_label_left, color=c, textcolor=color.white, size=size.small)
 if timeframe.change("D")
     dayDone := false
@@ -251,7 +268,7 @@ if tSide != 0 and barstate.isconfirmed and bar_index > tBar
     if ctMin >= 15 * 60 + 40
         lastRes := tFilled ? "closed at 3:40 PM" : "limit not filled"
         px340 = open - tSide * syminfo.mintick
-        f_end(tFilled ? "Closed 3:40 PM " + str.tostring((px340 - tFill) * tSide / math.abs(tFill - tStop), "+#.##;-#.##") + "R" : "Not filled", color.gray, px340, 0, tFilled ? "closed_340" : "cancelled")
+        f_end(tFilled ? "Closed 3:40 PM " + f_rTxt(f_blend((px340 - tFill) * tSide / tRisk)) + (tHalfDone ? " (half at +1R)" : "") : "Not filled", color.gray, px340, 0, tFilled ? "closed_340" : "cancelled")
         tSide := 0
     else
         if not tFilled
@@ -264,6 +281,12 @@ if tSide != 0 and barstate.isconfirmed and bar_index > tBar
                 dayDone := true
                 tFilledBar := bar_index
                 tFill   := (tSide == 1 ? open < tEntry : open > tEntry) ? open : tEntry
+                tRisk   := math.abs(tFill - tStop)
+                tOne    := tFill + tSide * tRisk
+                if not na(lnH)
+                    line.set_y1(lnH, tOne)
+                    line.set_y2(lnH, tOne)
+                    label.set_y(lbH, tOne)
                 if tFill != tEntry
                     // opened past the limit: filled at the open, target re-measured from the real fill
                     tTgt := tFill + tSide * rrBox * math.abs(tFill - tStop)
@@ -289,12 +312,33 @@ if tSide != 0 and barstate.isconfirmed and bar_index > tBar
                 // 1 tick slippage; a candle (after the fill candle) that opens past the stop fills at its open
                 gapS  = (tSide == 1 ? open < tStop : open > tStop) and not (bar_index == tFilledBar)
                 pxS   = (gapS ? open : tStop) - tSide * syminfo.mintick
-                f_end("Stopped " + str.tostring((pxS - tFill) * tSide / math.abs(tFill - tStop), "+#.##;-#.##") + "R", cLoss, pxS, -1, "stop")
+                rS    = f_blend((pxS - tFill) * tSide / tRisk)
+                if tHalfDone
+                    lastRes := "half at +1R, rest stopped at entry"
+                    f_end("Half +1R, rest at entry: " + f_rTxt(rS), color.gray, pxS, rS > 0 ? 1 : 0, "stop_at_entry")
+                else
+                    f_end("Stopped " + f_rTxt(rS), cLoss, pxS, -1, "stop")
                 tSide := 0
-            else if tSide == 1 ? high >= tTgt : low <= tTgt
-                lastRes := "target hit"
-                f_end("Target hit +" + str.tostring(rrBox) + "R", cWin, tTgt, 1, "target")
-                tSide := 0
+            else
+                // +1R: close half, move the rest's stop to the entry (checked after the stop, like the test)
+                if tHalfQ > 0 and not tHalfDone and (tSide == 1 ? high >= tOne : low <= tOne)
+                    tHalfDone := true
+                    tStop     := tFill
+                    f_report("half", tOne)
+                    alert(syminfo.ticker + " +1R hit: close " + str.tostring(tHalfQ) + " of " + str.tostring(tQty) + " at " + str.tostring(tOne, format.mintick) + ", move the stop to " + str.tostring(tFill, format.mintick) + " (entry)", alert.freq_once_per_bar_close)
+                    label.new(bar_index, tOne, "+1R: close " + str.tostring(tHalfQ) + ", stop to entry", style=tSide == 1 ? label.style_label_down : label.style_label_up, color=color.new(color.yellow, 10), textcolor=color.black, size=size.small)
+                    if showRR
+                        line.set_y1(lnS, tFill)
+                        line.set_y2(lnS, tFill)
+                        label.set_y(lbS, tFill)
+                        label.set_text(lbS, "Stop at entry " + str.tostring(tFill, format.mintick) + " x" + str.tostring(tQty - tHalfQ))
+                    if showPos
+                        box.set_text(bxS, "Half closed at +1R. Stop moved to entry " + str.tostring(tFill, format.mintick) + " for the other " + str.tostring(tQty - tHalfQ))
+                if tSide == 1 ? high >= tTgt : low <= tTgt
+                    rT = f_blend(rrBox)
+                    lastRes := "target hit"
+                    f_end("Target hit " + f_rTxt(rT) + (tHalfDone ? " (half at +1R)" : ""), cWin, tTgt, 1, "target")
+                    tSide := 0
 // keep the drawings running to the latest candle while the trade is working (at least minW candles wide)
 xLive = math.max(bar_index + 3, (tFilled ? tFilledBar : tBar + 1) + minW)
 if tSide != 0 and showPos
@@ -307,6 +351,9 @@ if tSide != 0 and showRR
     label.set_x(lbE, xLive)
     label.set_x(lbS, xLive)
     label.set_x(lbT, xLive)
+    if not na(lnH)
+        line.set_x2(lnH, xLive)
+        label.set_x(lbH, xLive)
 
 // barstate.isconfirmed: only signal once the candle has closed, like the backtest
 canSig = tSide == 0 and not (firstOnly and dayDone)
@@ -358,7 +405,15 @@ if canSig and side != 0 and trd * side > 0 and inSess and barstate.isconfirmed a
             perCtr  = stopPts * syminfo.pointvalue
             qty     = math.min(math.floor(riskUsd / perCtr), na(margin) ? 1000000 : math.floor(acctBal / margin))
             tQty    := qty
-            sizeTxt = qty >= 1 ? str.tostring(qty) + " contracts = $" + str.tostring(qty * perCtr, "#") + " risk" : "1 contract risks $" + str.tostring(perCtr, "#") + " (more than your $" + str.tostring(riskUsd, "#") + "): skip"
+            halfQ   = halfOn and qty >= 2 ? int(math.floor(qty / 2)) : 0
+            tHalfQ  := halfQ
+            tHalfDone := false
+            tRisk   := stopPts
+            tOne    := entry + side * stopPts
+            lnH     := na
+            lbH     := na
+            halfTxt = halfQ > 0 ? ", close " + str.tostring(halfQ) + " at +1R " + str.tostring(entry + side * stopPts, format.mintick) + " and move the stop to entry" : ""
+            sizeTxt = qty >= 1 ? str.tostring(qty) + " contracts = $" + str.tostring(qty * perCtr, "#") + " risk" + halfTxt : "1 contract risks $" + str.tostring(perCtr, "#") + " (more than your $" + str.tostring(riskUsd, "#") + "): skip"
             volTxt  = na(relVolC) ? "" : "\nCHoCH volume " + str.tostring(relVolC, "#.#") + "x avg"
             txt = grade + " " + (side == 1 ? "BUY" : "SELL") + "\nlimit " + str.tostring(entry, format.mintick) + "\nstop " + str.tostring(stop, format.mintick) + " (" + str.tostring(stopTk) + " ticks)" + "\ntarget " + str.tostring(tgt, format.mintick) + " (" + str.tostring(math.round(stopTk * rrBox)) + " ticks)" + "\n" + sizeTxt + volTxt
             fade = grade == "A+" ? 0 : grade == "A" ? 30 : 55
@@ -371,10 +426,13 @@ if canSig and side != 0 and trd * side > 0 and inSess and barstate.isconfirmed a
                 qtyTxt = qty >= 1 ? " x" + str.tostring(qty) : ""
                 lbE := label.new(bar_index + 1 + minW, entry, "Entry " + str.tostring(entry, format.mintick) + qtyTxt, style=label.style_label_left, color=color.blue, textcolor=color.white, size=size.small)
                 lbS := label.new(bar_index + 1 + minW, stop, "Stop " + str.tostring(stop, format.mintick) + " (" + str.tostring(stopTk) + " ticks)", style=label.style_label_left, color=cLoss, textcolor=color.white, size=size.small)
+                if halfQ > 0
+                    lnH := line.new(bar_index, tOne, bar_index + 1 + minW, tOne, color=color.yellow, width=1, style=line.style_dashed)
+                    lbH := label.new(bar_index + 1 + minW, tOne, "+1R " + str.tostring(tOne, format.mintick) + ": close " + str.tostring(halfQ) + ", stop to entry", style=label.style_label_left, color=color.new(color.yellow, 10), textcolor=color.black, size=size.small)
                 lbT := label.new(bar_index + 1 + minW, tgt, "Target " + str.tostring(rrBox) + "R " + str.tostring(tgt, format.mintick) + " (" + str.tostring(math.round(stopTk * rrBox)) + " ticks)", style=label.style_label_left, color=cWin, textcolor=color.white, size=size.small)
             if showPos
                 ctrs   = math.max(qty, 1)
-                tgtTxt = (qty < 1 ? "SKIP: 1 contract risks $" + str.tostring(perCtr, "#") + ", more than " + str.tostring(riskPct) + "% ($" + str.tostring(riskUsd, "#") + ")\n" : "") + (side == 1 ? "LONG " : "SHORT ") + grade + "  ·  qty " + str.tostring(ctrs) + "  ·  R:R " + str.tostring(rrBox) + "\nTarget " + str.tostring(tgt, format.mintick) + "  (" + str.tostring(math.round(stopTk * rrBox)) + " ticks)  +$" + str.tostring(ctrs * (perCtr * rrBox - comm), "#")
+                tgtTxt = (qty < 1 ? "SKIP: 1 contract risks $" + str.tostring(perCtr, "#") + ", more than " + str.tostring(riskPct) + "% ($" + str.tostring(riskUsd, "#") + ")\n" : "") + (side == 1 ? "LONG " : "SHORT ") + grade + "  ·  qty " + str.tostring(ctrs) + "  ·  R:R " + str.tostring(rrBox) + "\nTarget " + str.tostring(tgt, format.mintick) + "  (" + str.tostring(math.round(stopTk * rrBox)) + " ticks)  +$" + str.tostring(halfQ > 0 ? halfQ * perCtr + (ctrs - halfQ) * perCtr * rrBox - ctrs * comm : ctrs * (perCtr * rrBox - comm), "#") + (halfQ > 0 ? "\n+1R " + str.tostring(tOne, format.mintick) + ": close " + str.tostring(halfQ) + ", stop to entry" : "")
                 stpTxt = "Stop " + str.tostring(stop, format.mintick) + "  (" + str.tostring(stopTk) + " ticks)  -$" + str.tostring(ctrs * (perCtr + syminfo.mintick * syminfo.pointvalue + comm), "#") + "\nEntry " + str.tostring(entry, format.mintick) + " (limit)"
                 // starts on the next candle (the first one the limit can fill on), dashed until filled
                 bxT := box.new(bar_index + 1, math.max(entry, tgt), bar_index + 1 + minW, math.min(entry, tgt), text=tgtTxt, text_size=size.small, text_color=color.white, text_halign=text.align_left, text_valign=side == 1 ? text.align_top : text.align_bottom)
@@ -386,10 +444,6 @@ if canSig and side != 0 and trd * side > 0 and inSess and barstate.isconfirmed a
                     label.new(bar_index - off - 20, lvl, htfTxt + " level " + str.tostring(lvl, format.mintick), style=label.style_label_right, color=color.new(color.orange, 20), textcolor=color.black, size=size.tiny)
                 label.new(bar_index - off, ext, "Push into level", style=side == 1 ? label.style_label_up : label.style_label_down, color=color.new(color.orange, 100), textcolor=color.orange, size=size.small)
                 label.new(bar_index - 1, side == 1 ? high[1] : low[1], "CHoCH", style=side == 1 ? label.style_label_down : label.style_label_up, color=color.new(color.white, 100), textcolor=color.white, size=size.small)
-            if showHalf
-                r1 = entry + side * stopPts
-                line.new(bar_index, r1, bar_index + boxBars, r1, color=color.yellow, width=1, style=line.style_dashed)
-                label.new(bar_index + boxBars, r1, "+1R: take half, stop to BE", style=label.style_label_left, color=color.new(color.white, 100), textcolor=color.yellow, size=size.small)
             alert(grade + " " + (side == 1 ? "BUY " : "SELL ") + syminfo.ticker + ": limit " + str.tostring(entry, format.mintick) + ", stop " + str.tostring(stop, format.mintick) + " (" + str.tostring(stopTk) + " ticks), " + str.tostring(rrBox) + "R target " + str.tostring(tgt, format.mintick) + ", " + sizeTxt, alert.freq_once_per_bar_close)
 
 // ---------------------------------------------------------------- status table (top right)
@@ -398,7 +452,7 @@ f_row(int r, string k, string v, color c) =>
     table.cell(tbl, 0, r, k, text_color=color.gray, text_size=size.small, text_halign=text.align_left)
     table.cell(tbl, 1, r, v, text_color=c, text_size=size.small, text_halign=text.align_left)
 if showTbl and barstate.islast
-    status = tSide != 0 and not tFilled ? tGrade + (tSide == 1 ? " BUY" : " SELL") + " limit working @ " + str.tostring(tEntry, format.mintick) : tSide != 0 ? tGrade + (tSide == 1 ? " LONG" : " SHORT") + " open, stop " + str.tostring(tStop, format.mintick) + ", target " + str.tostring(tTgt, format.mintick) : firstOnly and dayDone ? "done for today" + (lastRes != "" ? " (" + lastRes + ")" : "") : inSess ? "waiting for a setup" + (lastRes != "" ? " (last: " + lastRes + ")" : "") : "outside signal hours"
+    status = tSide != 0 and not tFilled ? tGrade + (tSide == 1 ? " BUY" : " SELL") + " limit working @ " + str.tostring(tEntry, format.mintick) : tSide != 0 ? tGrade + (tSide == 1 ? " LONG" : " SHORT") + " open, stop " + str.tostring(tStop, format.mintick) + (tHalfDone ? " (entry, half closed)" : tHalfQ > 0 ? ", +1R " + str.tostring(tOne, format.mintick) : "") + ", target " + str.tostring(tTgt, format.mintick) : firstOnly and dayDone ? "done for today" + (lastRes != "" ? " (" + lastRes + ")" : "") : inSess ? "waiting for a setup" + (lastRes != "" ? " (last: " + lastRes + ")" : "") : "outside signal hours"
     stColor = tSide != 0 ? color.yellow : firstOnly and dayDone ? color.gray : color.white
     f_row(0, syminfo.ticker, timeframe.period + " min", color.white)
     f_row(1, htfTxt + " trend", trd == 1 ? "bullish (longs only)" : trd == -1 ? "bearish (shorts only)" : "none yet", trd == 1 ? color.teal : trd == -1 ? color.red : color.gray)
