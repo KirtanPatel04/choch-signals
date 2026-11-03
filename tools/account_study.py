@@ -36,7 +36,14 @@ from backtester.data import _clean, download_yahoo                   # noqa: E40
 MK = {"MES": (0.25, 5.0, 1.24, 50, "Micro S&P 500"),
       "MNQ": (0.25, 2.0, 1.24, 100, "Micro Nasdaq"),
       "MYM": (1.0, 0.5, 1.24, 50, "Micro Dow"),
-      "MGC": (0.1, 10.0, 1.24, 100, "Micro Gold")}
+      "MGC": (0.1, 10.0, 1.24, 100, "Micro Gold"),
+      # tested Oct 2026 as possible extra markets; day margins are rough guesses, check your broker's
+      "M2K": (0.1, 5.0, 1.24, 50, "Micro Russell 2000"),
+      "SIL": (0.005, 1000.0, 1.24, 200, "Micro Silver"),
+      "MCL": (0.01, 100.0, 1.24, 150, "Micro Crude Oil"),
+      "MHG": (0.0005, 2500.0, 1.24, 150, "Micro Copper"),
+      "MBT": (5.0, 0.1, 2.50, 1000, "Micro Bitcoin"),
+      "M6E": (0.0001, 12500.0, 1.24, 100, "Micro Euro")}
 NY = (8 * 60 + 30, 14 * 60)        # signal candle closes after 8:30 and by 2:00 PM CT
 
 
@@ -62,12 +69,20 @@ def typical_range(d: pd.DataFrame) -> float:
     return float(r[r > 0].median())
 
 
+# point scale vs MES, fixed to the Pine indicator's numbers (typical 1-minute candle size, Sep - Oct 2026) so the
+# test and the indicator always use the same level distance and minimum stop; other markets: measured from the data
+PINE_SCALE = {"MES": 1.0, "MNQ": 6.0, "MYM": 20 / 3, "MGC": 2 / 3, "SIL": 0.03 / 2.25, "M2K": 0.44}
+
+
+def scale(D: dict, m: str) -> float:
+    return PINE_SCALE.get(m) or typical_range(D[m]) / typical_range(D["MES"])
+
+
 def find(D: dict, tiers: tuple, ab_after: float, approach: int) -> list[dict]:
     """Every filled-or-cancelled signal in the NY window, all markets. Point settings scale by candle size vs MES."""
-    ref = typical_range(D["MES"])
     out = []
     for m, d in D.items():
-        for s in E.find_signals(d, MK[m][0], typical_range(d) / ref, sessions=("NY",), approach=approach):
+        for s in E.find_signals(d, MK[m][0], scale(D, m), sessions=("NY",), approach=approach):
             mins = s["time"].hour * 60 + s["time"].minute
             if s["tier"] not in tiers or s["status"] in ("open", "waiting") or not NY[0] < mins <= NY[1]:
                 continue
@@ -104,20 +119,20 @@ def half_at_1r(D: dict, s: dict) -> dict:
     r1 = abs(e - s["stop"])
     one, tg = e + side * r1, e + side * E.TARGET_R * r1
     flat_t = s["time"].normalize() + pd.Timedelta(minutes=E.SESSIONS["NY"]["flat"])
-    st, hit = s["stop"], False
+    st, hit, hit_t = s["stop"], False, None
     for j in range(f, len(d)):
         if idx[j] >= flat_t:
-            return dict(s, half_hit=True, r_rest=(o[j] - side * tick - e) * side / r1, status="closed", exit_time=idx[j])
+            return dict(s, half_hit=True, half_time=hit_t, r_rest=(o[j] - side * tick - e) * side / r1, half_status="closed", half_exit=idx[j])
         if (l[j] <= st) if side == 1 else (h[j] >= st):
             gap = ((o[j] < st) if side == 1 else (o[j] > st)) and j != f
             px = (o[j] if gap else st) - side * tick
             if not hit:
                 return dict(s, half_hit=False)                 # stopped before 1R: same as the plain trade
-            return dict(s, half_hit=True, r_rest=(px - e) * side / r1, status="breakeven", exit_time=idx[j])
+            return dict(s, half_hit=True, half_time=hit_t, r_rest=(px - e) * side / r1, half_status="breakeven", half_exit=idx[j])
         if not hit and ((h[j] >= one) if side == 1 else (l[j] <= one)):
-            hit, st = True, e
+            hit, st, hit_t = True, e, idx[j]
         if hit and ((h[j] >= tg) if side == 1 else (l[j] <= tg)):
-            return dict(s, half_hit=True, r_rest=E.TARGET_R, status="target", exit_time=idx[j])
+            return dict(s, half_hit=True, half_time=hit_t, r_rest=E.TARGET_R, half_status="target", half_exit=idx[j])
     return dict(s, half_hit=False)
 
 
@@ -132,9 +147,11 @@ def account(trades: list[dict], start: float, pct: float) -> list[dict]:
             rows.append(dict(s, n=0, usd=0.0, bal=bal, skipped=True))
             continue
         k = n // 2 if s.get("half_hit") else 0              # 1 contract can't be split: it runs the plain trade
+        if not k:
+            s = dict(s, half_time=None)
         if k:
             usd = (k * 1.0 + (n - k) * s["r_rest"]) * per - comm * n
-            s = dict(s, r=(k * 1.0 + (n - k) * s["r_rest"]) / n)
+            s = dict(s, r=(k * 1.0 + (n - k) * s["r_rest"]) / n, status=s["half_status"], exit_time=s["half_exit"])
         else:
             usd = s["r"] * per * n - comm * n
         bal += usd
@@ -149,7 +166,7 @@ def chart_time(ts) -> int:
 
 def report(D: dict, rows: list[dict], a, groups: list[tuple], out: Path) -> None:
     """1-minute chart page: every trade with its push, CHoCH, fill, exit and the balance after it."""
-    ref, setups, nth = typical_range(D["MES"]), [], {}
+    setups, nth = [], {}
     for k, s in enumerate(sorted(rows, key=lambda x: x["time"])):
         m, d = s["market"], D[s["market"]]
         tick, pv = MK[m][0], MK[m][1]
@@ -160,7 +177,7 @@ def report(D: dict, rows: list[dict], a, groups: list[tuple], out: Path) -> None
         lv = E.levels(d)
         w = pd.DatetimeIndex(lv.when)
         near = lv[(lv.kind == 1) & (w <= d.index[j]) & (d.index[j] - w <= E.LOOK)
-                  & ((lv.px - ext).abs() <= typical_range(d) / ref)]
+                  & ((lv.px - ext).abs() <= scale(D, m))]
         day = s["time"].strftime("%Y-%m-%d")
         if not s["skipped"]:
             nth[day] = nth.get(day, 0) + 1
@@ -175,7 +192,10 @@ def report(D: dict, rows: list[dict], a, groups: list[tuple], out: Path) -> None
             bal=round(s["bal"], 2), pv=pv, tick=tick, dec=0 if tick >= 1 else max(0, min(5, math.ceil(-math.log10(tick)))),
             ext=ext, level=float(near.px.iloc[(near.px - ext).abs().argmin()]) if len(near) else None,
             t_ext=chart_time(d.index[j]), t_choch=chart_time(d.index[i - 1]), t_sig=chart_time(d.index[i]),
-            t_fill=chart_time(s["fill_time"]), t_exit=chart_time(s["exit_time"])))
+            t_fill=chart_time(s["fill_time"]), t_exit=chart_time(s["exit_time"]),
+            t_half=chart_time(s["half_time"]) if s.get("half_time") is not None else None,
+            fill_at=f'{s["fill_time"]:%H:%M}', exit_at=f'{s["exit_time"]:%H:%M}',
+            half_at=f'{s["half_time"]:%H:%M}' if s.get("half_time") is not None else None))
     bars = {}
     for m in {x["market"] for x in setups}:
         d = D[m]
@@ -222,6 +242,7 @@ def main() -> None:
     p.add_argument("--half-at-1r", action="store_true", help="close half at +1R and move the stop to the entry")
     p.add_argument("--out", default="account_study.html", help="chart page written to reports/")
     p.add_argument("--no-open", action="store_true", help="don't open the chart page in a browser")
+    p.add_argument("--taken", help="only the plan trades the user really took: a journal CSV (market, date, signal_time)")
     a = p.parse_args()
 
     groups = [tuple(g.split("+")) for g in a.groups.split(",")]
@@ -237,6 +258,10 @@ def main() -> None:
     if a.start:
         sigs = [s for s in sigs if s["time"] >= pd.Timestamp(a.start, tz=E.TZ)]
     taken = plan(sigs, groups, a.max_day)
+    if a.taken:
+        import csv
+        mine = {(r["market"], r["date"], r["signal_time"]) for r in csv.DictReader(open(a.taken))}
+        taken = [s for s in taken if (s["market"], f"{s['time']:%Y-%m-%d}", f"{s['time']:%H:%M}") in mine]
     if a.half_at_1r:
         taken = [half_at_1r(D, s) for s in taken]
     rows = account(taken, a.start_balance, a.risk_pct / 100)
