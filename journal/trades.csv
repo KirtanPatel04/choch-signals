@@ -1,0 +1,2 @@
+date,market,grade,side,signal_time,fill_time,half_time,exit_time,entry,stop,target,exit,qty,pv,fees,balance_before,result,plan,notes
+2026-11-03,MNQ,A+,BUY,09:03,09:04,,09:57,28298.25,28247.25,28400.25,28400.25,1,2,1.24,875,target,Yes,"First live trade. Phone alert from the TradingView indicator. 1 contract ($102 risk, 15% of $875), so no half at +1R. Ran to +1.4R (28368), came back to the entry several times, held per the plan and hit the 2R target. Exit time from the chart screenshot at 9:58 AM."
