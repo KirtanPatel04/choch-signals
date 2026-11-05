@@ -45,10 +45,11 @@ MK = {"MES": (0.25, 5.0, 1.24, 50, "Micro S&P 500"),
       "MBT": (5.0, 0.1, 2.50, 1000, "Micro Bitcoin"),
       "M6E": (0.0001, 12500.0, 1.24, 100, "Micro Euro")}
 NY = (8 * 60 + 30, 14 * 60)        # signal candle closes after 8:30 and by 2:00 PM CT
+DATA = ROOT / "data"               # --data data_long: the year of Databento bars (tools/import_databento.py)
 
 
 def load(m: str, refresh: bool) -> pd.DataFrame:
-    cache = ROOT / "data" / f"{m}_F_1m.csv"
+    cache = DATA / f"{m}_F_1m.csv"
     old = None
     if cache.exists():
         old = pd.read_csv(cache, index_col=0)
@@ -122,6 +123,8 @@ def half_at_1r(D: dict, s: dict) -> dict:
     st, hit, hit_t = s["stop"], False, None
     for j in range(f, len(d)):
         if idx[j] >= flat_t:
+            if not hit:
+                return dict(s, half_hit=False)                 # never reached 1R: same as the plain trade (3:40 close)
             return dict(s, half_hit=True, half_time=hit_t, r_rest=(o[j] - side * tick - e) * side / r1, half_status="closed", half_exit=idx[j])
         if (l[j] <= st) if side == 1 else (h[j] >= st):
             gap = ((o[j] < st) if side == 1 else (o[j] > st)) and j != f
@@ -129,20 +132,20 @@ def half_at_1r(D: dict, s: dict) -> dict:
             if not hit:
                 return dict(s, half_hit=False)                 # stopped before 1R: same as the plain trade
             return dict(s, half_hit=True, half_time=hit_t, r_rest=(px - e) * side / r1, half_status="breakeven", half_exit=idx[j])
-        if not hit and ((h[j] >= one) if side == 1 else (l[j] <= one)):
+        if not hit and (j != f or E.SAME_BAR_TARGET) and ((h[j] >= one) if side == 1 else (l[j] <= one)):
             hit, st, hit_t = True, e, idx[j]
         if hit and ((h[j] >= tg) if side == 1 else (l[j] <= tg)):
             return dict(s, half_hit=True, half_time=hit_t, r_rest=E.TARGET_R, half_status="target", half_exit=idx[j])
     return dict(s, half_hit=False)
 
 
-def account(trades: list[dict], start: float, pct: float) -> list[dict]:
-    """Size each trade from the balance when it is placed; balance changes in exit order."""
+def account(trades: list[dict], start: float, pct: float, fixed: int = 0, risk_usd: float = 0) -> list[dict]:
+    """Size each trade from the balance when it is placed (or `fixed` contracts every time); balance changes in exit order."""
     bal, rows = start, []
     for s in sorted(trades, key=lambda x: x["exit_time"]):
         tick, pv, comm, margin, _ = MK[s["market"]]
         per = s["risk_pts"] * pv
-        n = min(math.floor(pct * bal / per), math.floor(bal / margin))
+        n = fixed or min(math.floor((risk_usd or pct * bal) / per), math.floor(bal / margin))
         if n < 1:
             rows.append(dict(s, n=0, usd=0.0, bal=bal, skipped=True))
             continue
@@ -214,7 +217,7 @@ def report(D: dict, rows: list[dict], a, groups: list[tuple], out: Path) -> None
                     days=len({x["day"] for x in xs}))
     tiers = a.tiers.replace(",", "/") + (f" (A/B only after {a.ab_after:g}:00)" if a.ab_after and a.tiers != "A+" else "")
     stats = dict(all=summ(traded), first=summ([x for x in traded if x["nth"] == 1]), total_days=len(days), target_r=E.TARGET_R,
-                 risk=f"{a.risk_pct:g}% of balance", max_day=len(groups) * a.max_day, tiers=tiers + ", fixed rules",
+                 risk=(f"${a.risk_usd:,.0f} fixed" if a.risk_usd else f"{a.contracts} contract(s)" if a.contracts else f"{a.risk_pct:g}% of balance"), max_day=len(groups) * a.max_day, tiers=tiers + ", fixed rules",
                  markets=" + ".join("/".join(g) for g in groups) + f", {a.max_day} a day each",
                  by_mkt={m: summ([x for x in traded if x["market"] == m]) for g in groups for m in g},
                  start=a.start_balance, end=round(max(rows, key=lambda r: r["exit_time"])["bal"], 2), half=a.half_at_1r,
@@ -242,10 +245,34 @@ def main() -> None:
     p.add_argument("--half-at-1r", action="store_true", help="close half at +1R and move the stop to the entry")
     p.add_argument("--out", default="account_study.html", help="chart page written to reports/")
     p.add_argument("--no-open", action="store_true", help="don't open the chart page in a browser")
+    p.add_argument("--data", help="bars folder instead of data/, e.g. data_long (never refreshed)")
+    p.add_argument("--contracts", type=int, default=0, help="fixed contracts a trade instead of %% risk (0 = off)")
+    p.add_argument("--hide-skipped", action="store_true", help="chart page lists only trades the account could size")
     p.add_argument("--taken", help="only the plan trades the user really took: a journal CSV (market, date, signal_time)")
+    p.add_argument("--target", type=float, default=2.0, help="target in R (default 2)")
+    p.add_argument("--window", default="8:30-14:00", help="signal candle closes after the first and by the second time CT")
+    p.add_argument("--strict", action="store_true", help="no target/+1R on the candle that filled the order (its high may come first)")
+    p.add_argument("--entry-depth", type=float, default=E.ENTRY_DEPTH, help="limit's place in the gap: 0 near edge, 0.5 middle, 1 far edge")
+    p.add_argument("--stop-at", default=E.STOP_AT, help="sweep (past the push) or gap (past the gap)")
+    p.add_argument("--min-disp", type=float, default=E.MIN_DISP, help="CHoCH candle strength needed")
+    p.add_argument("--near", type=float, default=E.NEAR, help="level distance (MES points, scaled)")
+    p.add_argument("--expiry", type=int, default=E.EXPIRY, help="candles the limit stays working")
+    p.add_argument("--no-trend", action="store_true", help="drop the 15-minute trend filter")
+    p.add_argument("--risk-usd", type=float, default=0, help="fixed $ risk per trade instead of %% of balance (0 = off)")
+    p.add_argument("--day-stop-wins", type=int, default=0, help="no more trades that day after this many wins (0 = off)")
+    p.add_argument("--day-stop-losses", type=int, default=0, help="no more trades that day after this many losses (0 = off)")
     a = p.parse_args()
+    E.SAME_BAR_TARGET = not a.strict
+    E.ENTRY_DEPTH, E.STOP_AT, E.MIN_DISP, E.NEAR, E.EXPIRY, E.TREND = a.entry_depth, a.stop_at, a.min_disp, a.near, a.expiry, not a.no_trend
+
+    global NY
+    E.TARGET_R = a.target
+    NY = tuple(int(h) * 60 + int(mm) for h, mm in (t.split(":") for t in a.window.split("-")))
 
     groups = [tuple(g.split("+")) for g in a.groups.split(",")]
+    if a.data:
+        global DATA
+        DATA, a.refresh = ROOT / a.data, False
     D = {}
     for m in sorted({m for g in groups for m in g} | {"MES"}):
         d = load(m, a.refresh)
@@ -258,17 +285,27 @@ def main() -> None:
     if a.start:
         sigs = [s for s in sigs if s["time"] >= pd.Timestamp(a.start, tz=E.TZ)]
     taken = plan(sigs, groups, a.max_day)
+    if a.day_stop_wins or a.day_stop_losses:                 # daily stop: after N wins or N losses, done for the day
+        kept, w, l = [], {}, {}
+        for s in sorted(taken, key=lambda x: x["time"]):
+            d = s["time"].date()
+            if (a.day_stop_wins and w.get(d, 0) >= a.day_stop_wins) or (a.day_stop_losses and l.get(d, 0) >= a.day_stop_losses):
+                continue
+            kept.append(s)
+            if s["r"] > 0: w[d] = w.get(d, 0) + 1
+            elif s["r"] < 0: l[d] = l.get(d, 0) + 1
+        taken = kept
     if a.taken:
         import csv
         mine = {(r["market"], r["date"], r["signal_time"]) for r in csv.DictReader(open(a.taken))}
         taken = [s for s in taken if (s["market"], f"{s['time']:%Y-%m-%d}", f"{s['time']:%H:%M}") in mine]
     if a.half_at_1r:
         taken = [half_at_1r(D, s) for s in taken]
-    rows = account(taken, a.start_balance, a.risk_pct / 100)
+    rows = account(taken, a.start_balance, a.risk_pct / 100, a.contracts, a.risk_usd)
 
     span = " - ".join(f"{D['MES'].index[k]:%b %d %H:%M}" for k in (0, -1))
     print(f"\nMES bars {span} · groups {' | '.join('/'.join(g) for g in groups)} · {a.tiers}"
-          f"{f' (A/B from {a.ab_after:g}:00)' if a.ab_after else ''} · {a.risk_pct:g}% risk · 2R{' · half at 1R, stop to entry' if a.half_at_1r else ''}\n")
+          f"{f' (A/B from {a.ab_after:g}:00)' if a.ab_after else ''} · {a.risk_pct:g}% risk · {a.target:g}R{f' · {a.window} CT' if a.window != '8:30-14:00' else ''}{' · half at 1R, stop to entry' if a.half_at_1r else ''}\n")
     print(f"{'#':>3}  {'signal (CT)':17} {'mkt':4} {'gr':2} {'side':5} {'entry':>10} {'stop':>10} {'target':>10}"
           f"  {'result':7} {'R':>6} {'ct':>3} {'P/L':>8} {'balance':>9}")
     for k, r in enumerate(sorted(rows, key=lambda x: x["time"]), 1):
@@ -286,7 +323,7 @@ def main() -> None:
         if x:
             print(f"  {m}: {len(x)} trades, {sum(r['usd'] > 0 for r in x)} wins, {sum(r['usd'] for r in x):+,.0f}")
     out = ROOT / "reports" / a.out
-    report(D, rows, a, groups, out)
+    report(D, [r for r in rows if not r["skipped"]] if a.hide_skipped else rows, a, groups, out)
     if not a.no_open and sys.platform == "darwin":
         subprocess.run(["open", str(out)])
 

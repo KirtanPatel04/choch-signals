@@ -1,0 +1,41 @@
+
+MES bars Sep 29 14:26 - Oct 30 15:59 · groups MES/MNQ/MYM | MGC · A+,A,B (A/B from 11:00) · 15% risk · 2R · half at 1R, stop to entry
+
+  #  signal (CT)       mkt  gr side       entry       stop     target  result       R  ct      P/L   balance
+  1  Wed Sep 30 08:51 MES  A+ Buy      7756.50    7747.50    7774.50  target   +1.50  16    +1060     6,060
+  2  Thu Oct 01 09:02 MGC  A+ Sell     4191.40    4196.60    4181.00  BE       +0.46  17     +386     6,446
+  3  Thu Oct 01 11:57 MNQ  A  Sell    30581.25   30674.00   30395.75  stop     -1.00   5     -936     5,510
+  4  Fri Oct 02 08:37 MYM  A+ Buy        51583      51495      51759  BE       +0.49  18     +369     5,879
+  5  Tue Oct 06 12:57 MNQ  A  Sell    31528.25   31546.25   31492.25  stop     -1.01  24     -906     4,973
+  6  Tue Oct 06 13:44 MGC  B  Buy      4197.00    4194.20    4202.60  target   +1.50  26    +1060     6,033
+  7  Wed Oct 07 11:08 MES  B  Buy      7844.25    7837.75    7857.25  target   +1.52  27    +1299     7,332
+  8  Thu Oct 08 08:33 MGC  A+ Buy      4150.40    4144.10    4163.00  BE       +0.46  17     +474     7,806
+  9  Thu Oct 08 11:42 MYM  A+ Buy        51329      51296      51395  target   +1.50  70    +1646     9,452
+ 10  Fri Oct 09 08:32 MNQ  A+ Sell    31153.50   31223.50   31013.50  target   +1.50  10    +2088    11,539
+ 11  Fri Oct 09 10:47 MGC  A+ Sell     4213.50    4216.70    4207.10  stop     -1.03  54    -1849     9,690
+ 12  Mon Oct 12 08:32 MYM  A+ Buy        52006      51917      52184  3:40     +1.12  32    +1552    11,243
+ 13  Mon Oct 12 09:19 MGC  A+ Sell     4188.40    4199.20    4166.80  3:40     +0.17  15     +257    11,500
+ 14  Tue Oct 13 12:01 MYM  A+ Sell       51910      51979      51772  BE       +0.49  50     +788    12,288
+ 15  Wed Oct 14 13:25 MNQ  B  Sell    30172.50   30200.50   30116.50  target   +1.50  32    +2648    14,936
+ 16  Wed Oct 14 13:55 MGC  A+ Buy      4115.90    4112.70    4122.30  target   +1.50  70    +3273    18,210
+ 17  Thu Oct 15 13:05 MGC  A  Buy      4176.40    4172.80    4183.60  target   +1.51  75    +3975    22,185
+ 18  Fri Oct 16 11:02 MNQ  B  Sell    29648.75   29754.25   29437.75  target   +1.53  15    +4834    27,019
+ 19  Mon Oct 19 09:47 MES  A+ Buy      7745.75    7738.50    7760.25  target   +1.50 111    +5916    32,935
+ 20  Mon Oct 19 13:41 MGC  A  Buy      4164.40    4162.40    4168.40  target   +1.50 247    +7114    40,049
+ 21  Tue Oct 20 12:13 MNQ  B  Buy     29719.00   29689.00   29779.00  target   +1.50 100    +8876    48,925
+ 22  Wed Oct 21 11:17 MGC  A+ Buy      4150.30    4147.00    4156.90  stop     -1.03 222    -7823    41,102
+ 23  Thu Oct 22 13:13 MYM  A  Buy        52974      52878      53166  3:40     +1.07 128    +6433    47,535
+ 24  Fri Oct 23 11:50 MES  B  Sell     7687.75    7690.50    7682.25  target   +1.50 518   +10041    57,577
+ 25  Mon Oct 26 10:51 MYM  A+ Sell       52536      52617      52374  BE       +0.49 213    +3975    61,552
+ 26  Tue Oct 27 08:35 MNQ  A+ Buy     29594.25   29532.25   29718.25  BE       +0.50  74    +4478    66,030
+ 27  Wed Oct 28 08:50 MNQ  A+ Sell    29810.00   29953.00   29524.00  stop     -1.00  34    -9783    56,247
+ 28  Thu Oct 29 09:49 MES  A+ Sell     7748.00    7762.25    7719.50  stop     -1.02 118    -8701    47,545
+ 29  Fri Oct 30 08:32 MNQ  A+ Sell    28785.00   28821.75   28711.50  BE       +0.49  97    +3383    50,929
+
+$5,000 -> $50,929 · 29 trades, 23 wins · peak $66,030 · worst drop -28%
+  MES: 5 trades, 4 wins, +9,615
+  MNQ: 9 trades, 6 wins, +14,682
+  MYM: 6 trades, 6 wins, +14,764
+  MGC: 9 trades, 7 wins, +6,867
+
+Chart page: /Users/kirtanpatel/Desktop/Apps/mes-backtester/reports/_b2.html

@@ -1,5 +1,5 @@
 //@version=6
-// CHoCH Setups (MES, MNQ, MYM, MGC)
+// CHoCH Setups (MES, MNQ, MYM, MGC, SIL)
 // Shows graded BUY / SELL signals (A+, A, B) on a 1, 5 or 15-minute chart when the setup forms:
 //   price pushes into a higher-timeframe swing level -> strong change of character on the chart's
 //   candles -> limit entry at the fair-value gap it leaves.
@@ -24,11 +24,14 @@
 // Exits (default): with 2+ contracts, close half (rounded down) at +1R and move the rest's stop to the entry; the rest
 //   runs to the target. 1 contract runs to the target or stop. Sep 29 - Oct 29 at 15%: $8,396, worst drop -26%
 //   (full 2R exit: $10,798, -38%). Re-run with tools/account_study.py --half-at-1r. One month of data.
+// Silver (SIL) is a third daily slot of its own, added Oct 30, 2026 after testing: alone 11 trades, 8 wins, $1,000 -> $2,144;
+//   with the plan, Sep 30 - Oct 30 at 15%: $19,359, worst drop -39% (without it $8,959, -26%). Sharing one slot
+//   with gold: $10,982, -38%. Picked after seeing the results, from 13 signals.
 // Each signal draws a position tool (green profit zone, red risk zone, like TradingView's Long / Short Position),
 // the 15M level, the push, the CHoCH candle and entry / stop / target lines that follow the
 // trade live (Filled, Target hit, Stopped). The label shows the stop and target in ticks, contracts for your risk, and the CHoCH candle's volume
 // vs its 20-candle average. Volume was NOT part of the test - it is extra information only.
-// Point settings are scaled to each market's candle size (MES/ES, MNQ/NQ, MYM/YM, MGC/GC, M2K/RTY).
+// Point settings are scaled to each market's candle size (MES/ES, MNQ/NQ, MYM/YM, MGC/GC, SIL/SI, M2K/RTY).
 // Levels and trend are only used for the signal and are not drawn.
 // Only closed candles are used, so signals do not repaint. This never places orders.
 indicator("CHoCH Setups", shorttitle="CHoCH A+/A/B", overlay=true, max_lines_count=500, max_boxes_count=500, max_labels_count=500, max_bars_back=200)
@@ -55,7 +58,7 @@ showTbl  = input.bool(true, "Show status table")
 rrBox    = input.float(2.0, "Target (R)", minval=0.5, tooltip="2R tested best.")
 maxWait  = input.int(10, "Cancel limit if not filled after (bars)", minval=1)
 minStop  = input.float(2.0, "Min stop (MES pts)", minval=0, tooltip="Scaled automatically on other markets.")
-ptScIn   = input.float(0, "Point scale vs MES (0 = auto)", minval=0, tooltip="Auto: MES/ES 1, MNQ/NQ 6, MYM/YM 6.667, MGC/GC 0.667, M2K/RTY 0.44 (typical 1-minute candle size compared with MES, Sep - Oct 2026).")
+ptScIn   = input.float(0, "Point scale vs MES (0 = auto)", minval=0, tooltip="Auto: MES/ES 1, MNQ/NQ 6, MYM/YM 6.667, MGC/GC 0.667, SIL/SI 0.0133, M2K/RTY 0.44 (typical 1-minute candle size compared with MES, Sep - Oct 2026).")
 
 riskUsd = acctBal * riskPct / 100
 abMin   = abFrom == "10:00" ? 600 : abFrom == "11:00" ? 660 : abFrom == "12:00" ? 720 : 0
@@ -63,9 +66,9 @@ abMin   = abFrom == "10:00" ? 600 : abFrom == "11:00" ? 660 : abFrom == "12:00" 
 // the settings are in MES points; other markets move more or fewer points per candle
 root    = syminfo.root
 // day margin per contract and commission per contract round trip used in the test (micros)
-margin  = (root == "MES" or root == "MYM") ? 50.0 : (root == "MNQ" or root == "MGC") ? 100.0 : na
+margin  = (root == "MES" or root == "MYM") ? 50.0 : (root == "MNQ" or root == "MGC") ? 100.0 : root == "SIL" ? 200.0 : na
 comm    = 1.24
-ptScale = ptScIn > 0 ? ptScIn : (root == "NQ" or root == "MNQ") ? 6.0 : (root == "YM" or root == "MYM") ? 20.0 / 3 : (root == "GC" or root == "MGC") ? 2.0 / 3 : (root == "RTY" or root == "M2K") ? 0.44 : 1.0
+ptScale = ptScIn > 0 ? ptScIn : (root == "NQ" or root == "MNQ") ? 6.0 : (root == "YM" or root == "MYM") ? 20.0 / 3 : (root == "GC" or root == "MGC") ? 2.0 / 3 : (root == "SI" or root == "SIL") ? 0.03 / 2.25 : (root == "RTY" or root == "M2K") ? 0.44 : 1.0
 aPlus   = tfIdx == 0 ? 1.5 : 1.0                    // CHoCH candle body vs the average range
 aMin    = 1.2
 bMin    = 1.0
@@ -473,5 +476,5 @@ alertcondition(sig == -1, "SELL", "{{ticker}} SELL: limit {{plot(\"Entry\")}}, s
 
 if barstate.islast and (not timeframe.isintraday or tfSec > 900)
     label.new(bar_index, high, "CHoCH Setups is built for 1, 5 or 15-minute charts", color=color.orange, textcolor=color.black)
-if barstate.islast and not (root == "MES" or root == "MNQ" or root == "MYM" or root == "MGC")
-    label.new(bar_index, low, "Tested on MES1!, MNQ1!, MYM1! and MGC1! futures only.\n" + syminfo.ticker + ": point scale, ticks and contract sizes may be wrong.", style=label.style_label_up, color=color.orange, textcolor=color.black)
+if barstate.islast and not (root == "MES" or root == "MNQ" or root == "MYM" or root == "MGC" or root == "SIL")
+    label.new(bar_index, low, "Tested on MES1!, MNQ1!, MYM1!, MGC1! and SIL1! futures only.\n" + syminfo.ticker + ": point scale, ticks and contract sizes may be wrong.", style=label.style_label_up, color=color.orange, textcolor=color.black)

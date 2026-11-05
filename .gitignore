@@ -3,3 +3,8 @@ __pycache__/
 /data/
 /reports/
 docs/data/
+/data_long/
+/glbx-*.csv
+/5years.csv
+/data_long_1y_backup/
+.DS_Store

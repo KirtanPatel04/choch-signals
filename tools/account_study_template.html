@@ -57,6 +57,9 @@ if(ST.other){$("other").href=ST.other; $("other").textContent="Switch to: "+ST.o
 if(ST.max_day===1) $("fol").style.display="none";
 if(ST.fo_label) $("folt").textContent=ST.fo_label;
 const fx=(x,s)=>x==null?"–":x.toFixed(s.dec);
+const hm=t=>{const [h,m]=t.split(":").map(Number); return `${(h+11)%12+1}:${String(m).padStart(2,"0")} ${h<12?"AM":"PM"}`;};
+const exitWord=s=>s.status==="target"?"target hit":s.status==="stop"?"stopped":s.status==="breakeven"?"rest stopped at entry":s.status==="skipped"?"skipped":"closed 3:40";
+const timeline=s=>s.fill_at?`in ${hm(s.fill_at)}${s.half_at?` · half off ${hm(s.half_at)}`:""}${s.exit_at?` · out ${hm(s.exit_at)} (${exitWord(s)})`:" · still open"}`:"";
 function header(){
   if(ST.by_mkt) $("s3").innerHTML=Object.entries(ST.by_mkt).map(([m,a])=>`${m} <b style="color:${a.usd>=0?"var(--win)":"var(--loss)"}">${money(a.usd)}</b> <span style="opacity:.7">(${a.n})</span>`).join(" · ");
   $("h1").textContent=`${ST.markets} CHoCH setups (${ST.tiers})`;
@@ -70,7 +73,8 @@ function header(){
 }
 $("list").innerHTML=SETUPS.map((s,k)=>`<div class="item${s.nth>1?" second":""}" data-k="${k}"><span class="num">${s.n}</span>
   <span class="when">${s.time}</span><span class="badge ${s.usd>0?"pos":"neg"}">${money(s.usd)}</span>
-  <span class="sub"><span class="mk">${s.market}</span><span class="tier">${s.tier}</span> ${s.side} · ${s.outcome||(s.status==="target"?"target hit":s.status==="stop"?"stopped":"closed 3:40")}${s.bal!=null?` · bal $${Math.round(s.bal).toLocaleString()}`:""}</span></div>`).join("");
+  <span class="sub"><span class="mk">${s.market}</span><span class="tier">${s.tier}</span> ${s.side} · ${s.outcome||(s.status==="target"?"target hit":s.status==="stop"?"stopped":"closed 3:40")}${s.bal!=null?` · bal $${Math.round(s.bal).toLocaleString()}`:""}</span>
+  <span class="sub">${timeline(s)}</span></div>`).join("");
 
 const chart=LightweightCharts.createChart($("chart"),{autoSize:true,
   layout:{background:{color:"#0f1117"},textColor:"#8a91a3"},
@@ -95,12 +99,17 @@ function show(k){
   const mk=[{time:s.t_ext,position:up?"belowBar":"aboveBar",color:"#ff9800",shape:up?"arrowUp":"arrowDown",text:"Push into level"},
             {time:s.t_choch,position:up?"aboveBar":"belowBar",color:"#e6e8ee",shape:"circle",text:"CHoCH"},
             {time:s.t_fill,position:up?"belowBar":"aboveBar",color:"#4f8cff",shape:up?"arrowUp":"arrowDown",text:"Filled"},
+            {time:s.t_half,position:up?"aboveBar":"belowBar",color:"#26a69a",shape:"circle",text:"Half off +1R"},
             {time:s.t_exit,position:"aboveBar",color:s.r>0?"#26a69a":"#ef5350",shape:"square",
              text:s.exit_text||(s.status==="target"?"Target hit":s.status==="stop"?"Stopped":s.status==="breakeven"?"Breakeven":s.status==="skipped"?"Skipped":"Closed "+s.r+"R")}];
   cs.setMarkers(mk.filter(m=>m.time!=null).sort((a,b)=>a.time-b.time));
   const pad=(ST.pad||40)*60; chart.timeScale().setVisibleRange({from:s.t_ext-pad,to:Math.max(s.t_exit,s.t_sig+3600)+pad/2});
   const pv=s.pv||{MES:5,MNQ:2,MYM:0.5}[s.market];
   $("info").innerHTML=`<h2>#${s.n} · ${s.market}${s.desc?" ("+s.desc+")":""} ${s.tier} ${s.side} · ${s.time} CT · trade ${s.nth} of the day</h2>
+   <div><div class="row">Signal (CHoCH candle closed)<b>${hm(s.time.slice(-5))}</b></div>
+        <div class="row">Trade taken (filled)<b>${s.fill_at?hm(s.fill_at):"never filled"}</b></div>
+        ${s.half_at?`<div class="row">Half closed at +1R, stop to entry<b>${hm(s.half_at)}</b></div>`:""}
+        ${s.exit_at?`<div class="row">Out: ${exitWord(s)}<b>${hm(s.exit_at)}</b></div>`:""}</div>
    <div><div class="row">Entry (limit, middle of the FVG)<b>${fx(s.entry,s)}</b></div>
         <div class="row">Stop (past the push)<b>${fx(s.stop,s)}</b></div>
         <div class="row">Target (${ST.target_r}R)<b>${fx(s.target,s)}</b></div>

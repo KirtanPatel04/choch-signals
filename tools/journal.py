@@ -13,6 +13,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "journal" / "trades.csv"
+DAYS = ROOT / "journal" / "days.csv"                                # days with no filled trade: signals seen and why
 OUT = ROOT / "reports" / "journal.html"
 SITE = ROOT / "docs" / "trades.html"                                # the GitHub Pages copy
 NAMES = {"MES": "Micro S&P", "MNQ": "Micro Nasdaq", "MYM": "Micro Dow", "MGC": "Micro Gold", "SIL": "Micro Silver"}
@@ -44,14 +45,14 @@ def cls(x: float) -> str:
     return "pos" if x > 0 else "neg" if x < 0 else ""
 
 
-def calendar(trades: list[dict], today: date) -> str:
+def calendar(trades: list[dict], today: date, quiet: dict[date, dict]) -> str:
     """Month grids (Mon-Fri, futures days) from the first trade's month to this month: each day's $ and R,
-    a weekly total column and the month total."""
+    a weekly total column and the month total. Days in journal/days.csv show their signal count."""
     by_day: dict[date, list[dict]] = {}
     for t in trades:
         by_day.setdefault(date.fromisoformat(t["date"]), []).append(t)
-    first = min(by_day) if by_day else today
-    start = date.fromisoformat(trades[0]["date"]) if trades else today
+    first = min([*by_day, *quiet]) if by_day or quiet else today
+    start = min([date.fromisoformat(trades[0]["date"]) if trades else today, *quiet])
     out, y, m = [], first.year, first.month
     while (y, m) <= (today.year, today.month):
         weeks = [w for w in cal.Calendar(0).monthdatescalendar(y, m) if any(d.month == m and d.weekday() < 5 for d in w)]
@@ -70,6 +71,9 @@ def calendar(trades: list[dict], today: date) -> str:
                     kind += " " + ("win" if u > 0 else "loss" if u < 0 else "flat")
                     body = (f'<b class="{cls(u)}">{money(u)}</b><span>{r:+.1f}R · {len(ts)} trade{"s" if len(ts) > 1 else ""}</span>'
                             + "".join(f'<em>{html.escape(t["market"])} {html.escape(t["grade"])} {"L" if t["side"] == "BUY" else "S"}</em>' for t in ts))
+                elif d.month == m and d in quiet:
+                    q = quiet[d]
+                    body = f'<b>$0</b><span>no trade · {q["signals"]} signal{"s" if q["signals"] != "1" else ""}, {q["filled"]} filled</span>'
                 elif d.month == m and start <= d <= today:
                     body = '<span>no trade</span>'
                 cells.append(f'<div class="day {kind}{" today" if d == today else ""}"><i>{d.day if d.month == m else ""}</i>{body}</div>')
@@ -99,6 +103,11 @@ def main() -> None:
     net = sum(t["usd"] for t in trades)
     net_r = sum(t["r"] for t in trades)
     off = [t for t in trades if t["plan"] != "Yes"]
+    quiet = {date.fromisoformat(q["date"]): q for q in csv.DictReader(DAYS.open())} if DAYS.exists() else {}
+    quiet_html = "".join(
+        f'<article class="card"><div class="top"><div><b>No trade</b> · {html.escape(q["signals"])} signal{"s" if q["signals"] != "1" else ""}, '
+        f'{html.escape(q["filled"])} filled</div><div class="muted">{d:%a %b %-d, %Y}</div></div>'
+        f'<p class="notes">{html.escape(q["notes"])}</p></article>' for d, q in sorted(quiet.items(), reverse=True))
 
     tiles = [("Trades", str(n)), ("Won / lost", f"{wins} / {n - wins}"),
              ("Net R", f'<span class="{cls(net_r)}">{net_r:+.1f}R</span>'),
@@ -198,14 +207,15 @@ nav.site {{ font-size:13px; color:var(--muted); margin-bottom:12px; }} nav.site 
 <div class="muted">Live trades on the $6,512 CHoCH plan · times in Chicago (CT) · {n} trade{'s' if n != 1 else ''} since {datetime.strptime(trades[0]['date'], '%Y-%m-%d').strftime('%b %-d, %Y') if trades else '-'}</div>
 <div class="tiles">{''.join(f'<div class="tile"><span>{k}</span><div>{v}</div></div>' for k, v in tiles)}</div>
 <h2>Calendar</h2>
-{calendar(trades, date.today())}
+{calendar(trades, date.today(), quiet)}
 <h2>Trades (newest first)</h2>
 {''.join(cards) or '<p class="muted">No trades yet.</p>'}
+{f'<h2>Days with no trade</h2>{quiet_html}' if quiet else ''}
 <div class="two">
 <div><h2>By market</h2><div class="wrap"><table><thead><tr><th class="l">Market</th><th>Trades</th><th>Wins</th><th>Net R</th><th>Net $</th></tr></thead><tbody>{group('market')}</tbody></table></div></div>
 <div><h2>By grade</h2><div class="wrap"><table><thead><tr><th class="l">Grade</th><th>Trades</th><th>Wins</th><th>Net R</th><th>Net $</th></tr></thead><tbody>{group('grade')}</tbody></table></div></div>
 </div>
-<p class="note">Real-money trades only. The Oct 30 MNQ sim trade (reports/journal_2026-10-30.csv) is not counted. Source: journal/trades.csv.</p>
+<p class="note">Real-money trades only. The Oct 30 MNQ sim trade (reports/journal_2026-10-30.csv) is not counted. Source: journal/trades.csv (trades) and journal/days.csv (days with no trade).</p>
 </main>"""
     OUT.write_text(page)
     nav = '<nav class="site"><a href="./">Signals</a> · <a href="journal.html">Journal form</a> · <b>My trades</b></nav>\n'

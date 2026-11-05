@@ -1,0 +1,140 @@
+//@version=6
+// Gold ORB + Trend (MGC1!, 1-minute) - the textbook "opening range breakout with the 20-day trend", no tuning.
+// Rules (all Central Time):
+//   Opening range = high / low of 8:30 - 9:00 (first 30 one-minute candles).
+//   Trend = yesterday's 3:00 PM close vs the average of the last 20 daily closes (above = up, below = down).
+//   After 9:00, the FIRST 1-minute close outside the range is the only breakout of the day. If it is in the trend's
+//   direction -> enter at the next candle's open (market order). Against the trend -> no trade today.
+//   Stop = the other side of the range. Target = 2R. Still open at 2:59 PM -> close at market.
+// Tested Nov 3 2025 - Nov 3 2026, 1 contract, $1.24 commission + 1 tick slippage: 118 trades, 46% win, +0.12R a trade,
+// positive in both halves (Nov-Apr +$1,789, May-Nov +$2,943). Never tuned, so the backtest is honest - but it is one year.
+// Added to the CHoCH 8M Plan (MES + MNQ) at 15%: realistic middle from $1k $167k -> $284k (2,000 shuffles); worst drop deeper.
+// Share the SAME account balance and losses-in-a-row numbers with your MES / MNQ charts. This never places orders.
+indicator("Gold ORB + Trend (MGC, 1m)", shorttitle="Gold ORB", overlay=true, max_lines_count=200, max_labels_count=200)
+
+acctBal   = input.float(1000, "Account balance ($)", minval=1, tooltip="Your whole account (same number as on the MES / MNQ charts). Update it after every trade.")
+riskPct   = input.float(15, "Risk per trade (% of balance)", minval=0.1, maxval=100)
+halfAfter = input.int(2, "Half size after this many losses in a row (0 = off)", minval=0)
+lossIn    = input.int(0, "Losses in a row right now (all charts)", minval=0, tooltip="Your real streak across MES, MNQ and gold, from the journal (0 after a win).")
+rrT       = input.float(2.0, "Target (R)", minval=0.5, tooltip="Tested 2R.")
+showTbl   = input.bool(true, "Show status table")
+
+TZ     = "America/Chicago"
+tick   = syminfo.mintick
+pv     = syminfo.pointvalue
+comm   = 1.24
+hh     = hour(time, TZ)
+mm     = minute(time, TZ)
+minOfDay = hh * 60 + mm                      // start time of this 1-minute candle
+riskUsd  = acctBal * riskPct / 100 * (halfAfter > 0 and lossIn >= halfAfter ? 0.5 : 1)
+
+// ---------------------------------------------------------------- daily closes (3:00 PM) and the 20-day trend
+var closes = array.new_float()
+var int trendDir = 0
+if minOfDay == 899 and barstate.isconfirmed        // the 2:59 PM candle's close = the day's 3:00 PM close
+    array.push(closes, close)
+    if array.size(closes) > 20
+        array.shift(closes)
+    trendDir := array.size(closes) == 20 ? (close > array.avg(closes) ? 1 : close < array.avg(closes) ? -1 : 0) : 0
+
+// ---------------------------------------------------------------- opening range and the day's one breakout
+var float orHi = na
+var float orLo = na
+var bool  brokeToday = false
+var int   pend = 0          // breakout seen on the last candle: enter at this candle's open
+var int   side = 0
+var float entry = na
+var float stop  = na
+var float tgt   = na
+var float qty   = na
+var string lastRes = ""
+var line lnE = na
+var line lnS = na
+var line lnT = na
+
+if minOfDay == 510                                  // 8:30 candle starts a new day
+    orHi := high
+    orLo := low
+    brokeToday := false
+    pend := 0
+else if minOfDay > 510 and minOfDay < 540
+    orHi := math.max(orHi, high)
+    orLo := math.min(orLo, low)
+
+// enter at the open of the candle after the breakout
+if pend != 0 and side == 0 and minOfDay < 899
+    side  := pend
+    entry := open + side * tick
+    stop  := side == 1 ? orLo : orHi
+    rPts  = (entry - stop) * side
+    if rPts <= 0
+        side := 0
+    else
+        tgt := entry + side * rrT * rPts
+        per  = rPts * pv
+        qty := math.floor(riskUsd / per)
+        lnE := line.new(bar_index, entry, bar_index + 30, entry, color=color.blue, width=2)
+        lnS := line.new(bar_index, stop, bar_index + 30, stop, color=color.red, width=2)
+        lnT := line.new(bar_index, tgt, bar_index + 30, tgt, color=color.green, width=2)
+        label.new(bar_index, side == 1 ? low : high, (side == 1 ? "GOLD ORB LONG" : "GOLD ORB SHORT") + "\nmarket ~" + str.tostring(entry, format.mintick) +
+             "\nstop " + str.tostring(stop, format.mintick) + "\ntarget " + str.tostring(tgt, format.mintick) +
+             "\n" + (qty >= 1 ? str.tostring(qty) + " contracts = $" + str.tostring(qty * per, "#") + " risk" : "SKIP: 1 contract risks $" + str.tostring(per, "#") + " (more than $" + str.tostring(riskUsd, "#") + ")"),
+             style=side == 1 ? label.style_label_up : label.style_label_down, color=color.new(side == 1 ? color.green : color.red, 10), textcolor=color.white)
+    pend := 0
+
+// manage the open trade: stop first if a candle hits both, then target, then the 2:59 PM close
+if side != 0 and not na(lnE)
+    line.set_x2(lnE, bar_index)
+    line.set_x2(lnS, bar_index)
+    line.set_x2(lnT, bar_index)
+    hitS = side == 1 ? low <= stop : high >= stop
+    hitT = side == 1 ? high >= tgt : low <= tgt
+    if hitS
+        lastRes := "stopped (-1R)"
+        label.new(bar_index, stop, "Gold ORB: stopped -1R", style=label.style_label_left, color=color.red, textcolor=color.white, size=size.small)
+        alert("Gold ORB: stopped at " + str.tostring(stop, format.mintick), alert.freq_once_per_bar)
+        side := 0
+    else if hitT
+        lastRes := "target hit (+" + str.tostring(rrT) + "R)"
+        label.new(bar_index, tgt, "Gold ORB: target +" + str.tostring(rrT) + "R", style=label.style_label_left, color=color.green, textcolor=color.white, size=size.small)
+        alert("Gold ORB: target hit at " + str.tostring(tgt, format.mintick), alert.freq_once_per_bar)
+        side := 0
+    else if minOfDay == 899 and barstate.isconfirmed
+        r = ((close - side * tick) - entry) * side / ((entry - stop) * side)
+        lastRes := "closed at 3:00 PM (" + str.tostring(r, "#.##") + "R)"
+        label.new(bar_index, close, "Gold ORB: closed 3 PM " + str.tostring(r, "+#.##;-#.##") + "R", style=label.style_label_left, color=color.gray, textcolor=color.white, size=size.small)
+        alert("Gold ORB: 3:00 PM - close the gold trade at market", alert.freq_once_per_bar_close)
+        side := 0
+
+// breakout check on each closed candle from 9:00 to 2:58 PM (first one only)
+if barstate.isconfirmed and not brokeToday and minOfDay >= 540 and minOfDay < 898 and not na(orHi)
+    up = close > orHi
+    dn = close < orLo
+    if up or dn
+        brokeToday := true
+        bk = up ? 1 : -1
+        if trendDir == bk and side == 0
+            pend := bk
+            alert("GOLD ORB " + (bk == 1 ? "LONG" : "SHORT") + " " + syminfo.ticker + ": enter at market now, stop " + str.tostring(bk == 1 ? orLo : orHi, format.mintick) + " (other side of the 8:30-9:00 range), target " + str.tostring(rrT) + "R", alert.freq_once_per_bar_close)
+            lastRes := "breakout " + (bk == 1 ? "up" : "down") + " with the trend: entering"
+        else
+            lastRes := "breakout " + (bk == 1 ? "up" : "down") + " AGAINST the 20-day trend: no trade today"
+
+plot(minOfDay >= 540 and minOfDay < 900 ? orHi : na, "Range high", color=color.new(color.orange, 30), style=plot.style_linebr)
+plot(minOfDay >= 540 and minOfDay < 900 ? orLo : na, "Range low", color=color.new(color.orange, 30), style=plot.style_linebr)
+
+var table tb = table.new(position.top_right, 2, 5, bgcolor=color.new(color.black, 20), border_width=1, border_color=color.new(color.gray, 70))
+if showTbl and barstate.islast
+    table.cell(tb, 0, 0, syminfo.ticker, text_color=color.gray, text_size=size.small)
+    table.cell(tb, 1, 0, "Gold ORB + 20-day trend", text_color=color.white, text_size=size.small)
+    table.cell(tb, 0, 1, "20-day trend", text_color=color.gray, text_size=size.small)
+    table.cell(tb, 1, 1, trendDir == 1 ? "up (longs only)" : trendDir == -1 ? "down (shorts only)" : "building (needs 20 days)", text_color=trendDir == 1 ? color.teal : trendDir == -1 ? color.red : color.gray, text_size=size.small)
+    table.cell(tb, 0, 2, "Range 8:30-9:00", text_color=color.gray, text_size=size.small)
+    table.cell(tb, 1, 2, na(orHi) ? "n/a" : str.tostring(orLo, format.mintick) + " - " + str.tostring(orHi, format.mintick), text_color=color.orange, text_size=size.small)
+    table.cell(tb, 0, 3, "Today", text_color=color.gray, text_size=size.small)
+    table.cell(tb, 1, 3, side != 0 ? (side == 1 ? "LONG open" : "SHORT open") + ", stop " + str.tostring(stop, format.mintick) + ", target " + str.tostring(tgt, format.mintick) : lastRes != "" ? lastRes : minOfDay < 540 ? "range forming" : "waiting for the first breakout", text_color=side != 0 ? color.yellow : color.white, text_size=size.small)
+    table.cell(tb, 0, 4, "Risk per trade", text_color=color.gray, text_size=size.small)
+    table.cell(tb, 1, 4, "$" + str.tostring(riskUsd, "#") + (halfAfter > 0 and lossIn >= halfAfter ? " HALF SIZE" : ""), text_color=halfAfter > 0 and lossIn >= halfAfter ? color.orange : color.white, text_size=size.small)
+
+if barstate.islast and syminfo.root != "MGC" and syminfo.root != "GC"
+    label.new(bar_index, high, "Tested on MGC1! (micro gold) only", color=color.orange, textcolor=color.black)

@@ -1,0 +1,281 @@
+//@version=6
+// CHoCH Bot - sends order alerts for the tested $1,000 plan (see bot/README.md). Put it on a 1-minute chart.
+// One copy per slot:
+//   Indices: chart MES1!, slot "Indices" - watches MES, MNQ and MYM together; one order at a time and the first
+//            fill of the day ends the indices for the day (same minute: MES first, then MNQ, then MYM).
+//   Gold:    chart MGC1!, slot "Gold".      Silver: chart SIL1!, slot "Silver".
+// Same rules as the test (tools/account_study.py, bot/replay.py): A+ any time, A/B from 11:00 CT, signals
+// 8:30 AM - 2:00 PM CT; 15% of the balance in whole contracts (skip if 1 contract is more - a skipped fill still
+// ends the slot's day); limit cancelled after 10 candles or if a candle opens past the stop; 2+ contracts close
+// half at +1R and move the rest's stop to the entry; 2R target; flat at 3:40 PM CT.
+// Messages (JSON, one per alert): entry limit with its stop and target bracket, cancel, exit half + move stop,
+// exit all at 3:40. Stops and targets are left to the broker's bracket. Nothing is sent until "Send orders" is on.
+// The signal code is copied from indicators/MES_CHoCH_Setups.pine - change both together.
+indicator("CHoCH Bot", shorttitle="CHoCH Bot", overlay=true, max_labels_count=500, max_bars_back=200)
+
+// ---------------------------------------------------------------- inputs
+slot     = input.string("Indices (MES + MNQ + MYM)", "Slot on this chart", options=["Indices (MES + MNQ + MYM)", "Gold (MGC)", "Silver (SIL)"])
+armed    = input.bool(false, "Send orders", tooltip="Off: the bot only draws what it would do. On: every order goes out as an alert message - create one alert on this script with 'Any alert() function call' and your bridge's webhook URL. Start on a sim account.")
+acctBal  = input.float(1000, "Account balance ($)", minval=1, tooltip="Your whole account balance. Update it on all 3 bot charts after every trade, like the test.")
+riskPct  = input.float(15, "Risk per trade (% of balance)", minval=0.1, maxval=100)
+acctName = input.string("", "Account name for the bridge (optional)")
+sym1In   = input.symbol("CME_MINI:MES1!", "Index 1 (first on the same minute)", group="Index markets")
+sym2In   = input.symbol("CME_MINI:MNQ1!", "Index 2", group="Index markets")
+sym3In   = input.symbol("CBOT_MINI:MYM1!", "Index 3", group="Index markets")
+goldIn   = input.symbol("COMEX:MGC1!", "Gold", group="Metals")
+silvIn   = input.symbol("COMEX:SIL1!", "Silver", group="Metals")
+
+sigSess = "0830-1400"
+abMin   = 660            // A and B only once the signal candle closes at 11:00 CT or later
+rrBox   = 2.0
+maxWait = 10
+comm    = 1.24
+isIdx   = slot == "Indices (MES + MNQ + MYM)"
+symA    = isIdx ? sym1In : slot == "Gold (MGC)" ? goldIn : silvIn
+
+// ---------------------------------------------------------------- signal (runs on each market's own candles)
+f_piv() =>
+    float ph = high[2] > high[3] and high[2] > high[1] ? high[2] : na
+    float pl = low[2] < low[3] and low[2] < low[1] ? low[2] : na
+    [ph, pl]
+
+f_struct() =>
+    var int st = 0
+    var float sh = na
+    var float sl = na
+    if high[1] > high[2] and high[1] >= high
+        sh := high[1]
+    if low[1] < low[2] and low[1] <= low
+        sl := low[1]
+    if not na(sh) and close > sh
+        st := 1
+    else if not na(sl) and close < sl
+        st := -1
+    st[1]
+
+// returns [side, limit, stop, CHoCH size vs avg range, open, high, low, tick, $ per point, day margin]
+f_detect() =>
+    tick = syminfo.mintick
+    r    = syminfo.root
+    sc   = (r == "NQ" or r == "MNQ") ? 6.0 : (r == "YM" or r == "MYM") ? 20.0 / 3 : (r == "GC" or r == "MGC") ? 2.0 / 3 : (r == "SI" or r == "SIL") ? 0.03 / 2.25 : 1.0
+    mg   = (r == "MES" or r == "MYM") ? 50.0 : (r == "MNQ" or r == "MGC") ? 100.0 : r == "SIL" ? 200.0 : 0.0
+    [pdh, pdl] = request.security(syminfo.tickerid, "D", [high[1], low[1]], lookahead=barmerge.lookahead_on)
+    [phH, plH] = request.security(syminfo.tickerid, "15", f_piv(), lookahead=barmerge.lookahead_on)
+    trd = request.security(syminfo.tickerid, "15", f_struct(), lookahead=barmerge.lookahead_on)
+    // levels: 1 = 15M swing, 2 = previous day high / low, kept for 3 days
+    var lvPx   = array.new_float()
+    var lvKind = array.new_int()
+    var lvT    = array.new_int()
+    if timeframe.change("15")
+        if not na(phH)
+            array.push(lvPx, phH)
+            array.push(lvKind, 1)
+            array.push(lvT, time)
+        if not na(plH)
+            array.push(lvPx, plH)
+            array.push(lvKind, 1)
+            array.push(lvT, time)
+    if timeframe.change("D")
+        if not na(pdh)
+            array.push(lvPx, pdh)
+            array.push(lvKind, 2)
+            array.push(lvT, time)
+        if not na(pdl)
+            array.push(lvPx, pdl)
+            array.push(lvKind, 2)
+            array.push(lvT, time)
+    lookMs = 3 * 86400000
+    while array.size(lvT) > 0 and time - array.get(lvT, 0) > lookMs + 86400000
+        array.shift(lvPx)
+        array.shift(lvKind)
+        array.shift(lvT)
+    // swings and the CHoCH candle on the 1-minute candles
+    var float swHi = na
+    var float swLo = na
+    if high[1] > high[2] and high[1] >= high
+        swHi := high[1]
+    if low[1] < low[2] and low[1] <= low
+        swLo := low[1]
+    avgRng = ta.sma(high - low, 30)[1]
+    loOff  = -ta.lowestbars(low, 21)
+    hiOff  = -ta.highestbars(high, 21)
+    bullC  = not na(swHi) and close[1] > swHi and close[1] > open[1] and low > high[2]
+    bearC  = not bullC and not na(swLo) and close[1] < swLo and close[1] < open[1] and high < low[2]
+    side   = bullC ? 1 : bearC ? -1 : 0
+    int   oSide  = 0
+    float oEntry = na
+    float oStop  = na
+    float disp   = na
+    if side != 0 and trd * side > 0 and not na(avgRng) and bar_index > 20 + 15 + 3
+        disp := math.abs(close[1] - open[1]) / avgRng
+        if disp >= 1.0
+            off  = side == 1 ? loOff : hiOff
+            ext  = side == 1 ? low[off] : high[off]
+            extT = time[off]
+            bool at15 = false
+            bool atPD = false
+            n = array.size(lvPx)
+            if n > 0
+                for j = 0 to n - 1
+                    t0 = array.get(lvT, j)
+                    if t0 <= extT and extT - t0 <= lookMs and math.abs(array.get(lvPx, j) - ext) <= 1.0 * sc
+                        if array.get(lvKind, j) == 1
+                            at15 := true
+                        else
+                            atPD := true
+            // the push came INTO the level: none of the 15 candles before it went past it
+            bool intoLevel = true
+            for b = off + 1 to off + 15
+                if side == 1 ? low[b] < ext : high[b] > ext
+                    intoLevel := false
+            if at15 and not atPD and intoLevel
+                entry   = side == 1 ? math.floor((low + high[2]) / 2 / tick) * tick : math.ceil((high + low[2]) / 2 / tick) * tick
+                stopPts = math.max(math.abs(entry - (ext - side * tick)), 2.0 * sc)
+                oSide  := side
+                oEntry := entry
+                oStop  := entry - side * stopPts
+    [oSide, oEntry, oStop, disp, open, high, low, tick, syminfo.pointvalue, mg]
+
+[sd1, en1, st1, dp1, o1, h1, l1, tk1, pv1, mg1] = request.security(symA, timeframe.period, f_detect())
+[sd2, en2, st2, dp2, o2, h2, l2, tk2, pv2, mg2] = request.security(sym2In, timeframe.period, f_detect())
+[sd3, en3, st3, dp3, o3, h3, l3, tk3, pv3, mg3] = request.security(sym3In, timeframe.period, f_detect())
+
+f_pick(int k, float a, float b, float c) =>
+    k == 1 ? a : k == 2 ? b : c
+f_name(string s) =>
+    parts = str.split(s, ":")
+    array.size(parts) > 1 ? array.get(parts, 1) : s
+
+// ---------------------------------------------------------------- the slot: one order or trade at a time
+var int    tK      = 0       // market of the working order / trade: 1, 2, 3
+var int    tSide   = 0
+var string tName   = ""
+var string tGrade  = ""
+var float  tEntry  = na
+var float  tStop   = na
+var float  tTgt    = na
+var float  tTick   = na
+var int    tBar    = na
+var bool   tFilled = false
+var float  tQty    = 0
+var float  tFill   = na
+var float  tRisk   = na
+var float  tOne    = na
+var int    tHalfQ  = 0
+var bool   tHalfDone = false
+var bool   dayDone = false
+var string lastRes = ""
+
+f_px(float x) =>
+    str.tostring(x, "#.#####")
+f_send(string body) =>
+    if armed
+        alert('{"bot":"choch","account":"' + acctName + '","ticker":"' + tName + '",' + body + '}', alert.freq_all)
+f_mark(string txt, color c) =>
+    label.new(bar_index, high, tName + " " + txt, yloc=yloc.abovebar, style=label.style_label_down, color=c, textcolor=color.white, size=size.small)
+
+if timeframe.change("D")
+    dayDone := false
+    lastRes := ""
+
+ctMin    = hour(time, "America/Chicago") * 60 + minute(time, "America/Chicago")
+closeMin = ctMin + 1
+inSess   = not na(time(timeframe.period, sigSess, "America/Chicago"))
+
+// follow the working order / trade on its own market's candles (same order of checks as the test)
+if tSide != 0 and barstate.isconfirmed and bar_index > tBar
+    o = f_pick(tK, o1, o2, o3)
+    h = f_pick(tK, h1, h2, h3)
+    l = f_pick(tK, l1, l2, l3)
+    if ctMin >= 15 * 60 + 40
+        if tFilled and tQty >= 1
+            f_send('"action":"exit_all"')
+        else if not tFilled and tQty >= 1
+            f_send('"action":"cancel"')
+        lastRes := tFilled ? "closed 3:40 PM" : "limit not filled"
+        f_mark(tFilled ? "flat 3:40 PM" : "cancelled", color.gray)
+        tSide := 0
+    else
+        if not tFilled
+            if bar_index - tBar > maxWait or (tSide == 1 ? o <= tStop : o >= tStop)
+                if tQty >= 1
+                    f_send('"action":"cancel"')
+                lastRes := "limit cancelled (not filled)"
+                f_mark("cancelled: not filled", color.gray)
+                tSide := 0
+            else if (tSide == 1 ? l <= tEntry : h >= tEntry)
+                tFilled := true
+                dayDone := true
+                tFill   := (tSide == 1 ? o < tEntry : o > tEntry) ? o : tEntry
+                tRisk   := math.abs(tFill - tStop)
+                tOne    := tFill + tSide * tRisk
+                f_mark(tQty >= 1 ? "filled " + f_px(tFill) + " x" + str.tostring(tQty) : "would fill (skipped, too big) - slot done today", color.blue)
+        if tFilled and tSide != 0
+            if tSide == 1 ? l <= tStop : h >= tStop
+                lastRes := tHalfDone ? "half at +1R, rest stopped at entry" : "stopped out"
+                f_mark(tHalfDone ? "rest stopped at entry" : "stopped", tHalfDone ? color.gray : color.red)
+                tSide := 0
+            else
+                if tHalfQ > 0 and not tHalfDone and (tSide == 1 ? h >= tOne : l <= tOne)
+                    tHalfDone := true
+                    tStop     := tFill
+                    f_send('"action":"exit","quantity":' + str.tostring(tHalfQ))
+                    f_send('"action":"move_stop","stopLoss":' + f_px(tFill))
+                    f_mark("+1R: closed " + str.tostring(tHalfQ) + ", stop to entry", color.orange)
+                if tSide == 1 ? h >= tTgt : l <= tTgt
+                    lastRes := "target hit"
+                    f_mark("target hit", color.teal)
+                    tSide := 0
+
+// new signal: only when nothing is working and the slot has no fill today. Same minute: market 1, then 2, then 3.
+f_ok(int sd, float dp) =>
+    sd != 0 and (dp >= 1.5 or closeMin >= abMin)
+if tSide == 0 and not dayDone and inSess and barstate.isconfirmed
+    k = f_ok(sd1, dp1) ? 1 : isIdx and f_ok(sd2, dp2) ? 2 : isIdx and f_ok(sd3, dp3) ? 3 : 0
+    if k > 0
+        side  = int(f_pick(k, sd1, sd2, sd3))
+        entry = f_pick(k, en1, en2, en3)
+        stop  = f_pick(k, st1, st2, st3)
+        dp    = f_pick(k, dp1, dp2, dp3)
+        pv    = f_pick(k, pv1, pv2, pv3)
+        mg    = f_pick(k, mg1, mg2, mg3)
+        stopPts = math.abs(entry - stop)
+        perCtr  = stopPts * pv
+        riskUsd = acctBal * riskPct / 100
+        qty     = math.min(math.floor(riskUsd / perCtr), mg > 0 ? math.floor(acctBal / mg) : 1000000)
+        tK      := k
+        tSide   := side
+        tName   := f_name(k == 1 ? symA : k == 2 ? sym2In : sym3In)
+        tGrade  := dp >= 1.5 ? "A+" : dp >= 1.2 ? "A" : "B"
+        tEntry  := entry
+        tStop   := stop
+        tTgt    := entry + side * stopPts * rrBox
+        tTick   := f_pick(k, tk1, tk2, tk3)
+        tBar    := bar_index
+        tFilled := false
+        tQty    := qty
+        tHalfQ  := qty >= 2 ? int(math.floor(qty / 2)) : 0
+        tHalfDone := false
+        tRisk   := stopPts
+        tOne    := entry + side * stopPts
+        if qty >= 1
+            f_send('"action":"' + (side == 1 ? "buy" : "sell") + '","orderType":"limit","quantity":' + str.tostring(qty) + ',"limitPrice":' + f_px(entry) + ',"stopLoss":' + f_px(stop) + ',"takeProfit":' + f_px(tTgt) + ',"grade":"' + tGrade + '"')
+            f_mark(tGrade + (side == 1 ? " BUY" : " SELL") + " limit " + f_px(entry) + " x" + str.tostring(qty) + "\nstop " + f_px(stop) + "  target " + f_px(tTgt) + (tHalfQ > 0 ? "\n+1R " + f_px(tOne) + ": close " + str.tostring(tHalfQ) : ""), side == 1 ? color.teal : color.red)
+        else
+            f_mark(tGrade + " SKIP: 1 contract risks $" + str.tostring(perCtr, "#") + ", more than $" + str.tostring(riskUsd, "#") + " - no order", color.gray)
+
+// ---------------------------------------------------------------- status (top right)
+var table tbl = table.new(position.top_right, 2, 5, bgcolor=color.new(color.black, 20), border_width=1, border_color=color.new(color.gray, 70))
+if barstate.islast
+    status = tSide != 0 and not tFilled ? tGrade + " " + tName + (tSide == 1 ? " buy" : " sell") + " limit " + f_px(tEntry) + (tQty >= 1 ? " x" + str.tostring(tQty) : " (skip)") : tSide != 0 ? tName + (tSide == 1 ? " long" : " short") + " x" + str.tostring(tQty) + ", stop " + f_px(tStop) + ", target " + f_px(tTgt) : dayDone ? "done for today (" + lastRes + ")" : inSess ? "waiting for a setup" + (lastRes != "" ? " (last: " + lastRes + ")" : "") : "outside signal hours"
+    table.cell(tbl, 0, 0, "CHoCH Bot", text_color=color.gray, text_size=size.small)
+    table.cell(tbl, 1, 0, slot, text_color=color.white, text_size=size.small)
+    table.cell(tbl, 0, 1, "Orders", text_color=color.gray, text_size=size.small)
+    table.cell(tbl, 1, 1, armed ? "SENDING" : "off (drawing only)", text_color=armed ? color.orange : color.gray, text_size=size.small)
+    table.cell(tbl, 0, 2, "Today", text_color=color.gray, text_size=size.small)
+    table.cell(tbl, 1, 2, status, text_color=tSide != 0 ? color.yellow : color.white, text_size=size.small)
+    table.cell(tbl, 0, 3, "Risk per trade", text_color=color.gray, text_size=size.small)
+    table.cell(tbl, 1, 3, "$" + str.tostring(acctBal * riskPct / 100, "#") + " (" + str.tostring(riskPct) + "% of $" + str.tostring(acctBal, "#") + ")", text_color=color.white, text_size=size.small)
+
+if barstate.islast and timeframe.period != "1"
+    label.new(bar_index, high, "CHoCH Bot runs on 1-minute charts only", color=color.orange, textcolor=color.black)

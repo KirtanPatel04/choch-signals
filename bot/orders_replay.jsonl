@@ -1,0 +1,172 @@
+{"slot": "indices", "ticker": "MES1!", "grade": "A+", "time": "2026-09-30 08:51", "action": "buy", "orderType": "limit", "quantity": 3, "limitPrice": 7756.5, "stopLoss": 7747.5, "takeProfit": 7774.5}
+{"slot": "indices", "ticker": "MES1!", "grade": "A+", "time": "2026-09-30 08:59", "action": "exit", "quantity": 1, "note": "+1R: close half"}
+{"slot": "indices", "ticker": "MES1!", "grade": "A+", "time": "2026-09-30 08:59", "action": "move_stop", "stopLoss": 7756.5, "note": "stop to entry"}
+{"slot": "indices", "ticker": "MYM1!", "grade": "A+", "time": "2026-10-01 08:41", "action": "sell", "orderType": "limit", "limitPrice": 51372.0, "stopLoss": 51496.0, "takeProfit": 51124.0, "quantity": "15% of balance"}
+{"slot": "indices", "ticker": "MYM1!", "grade": "A+", "time": "2026-10-01 08:51", "action": "cancel", "note": "limit not filled after 10 candles"}
+{"slot": "gold", "ticker": "MGC1!", "grade": "A+", "time": "2026-10-01 09:02", "action": "sell", "orderType": "limit", "quantity": 3, "limitPrice": 4191.4, "stopLoss": 4196.6, "takeProfit": 4181.0}
+{"slot": "gold", "ticker": "MGC1!", "grade": "A+", "time": "2026-10-01 09:08", "action": "exit", "quantity": 1, "note": "+1R: close half"}
+{"slot": "gold", "ticker": "MGC1!", "grade": "A+", "time": "2026-10-01 09:08", "action": "move_stop", "stopLoss": 4191.4, "note": "stop to entry"}
+{"slot": "indices", "ticker": "MNQ1!", "grade": "A", "time": "2026-10-01 11:57", "action": "sell", "orderType": "limit", "quantity": 1, "limitPrice": 30581.25, "stopLoss": 30674.0, "takeProfit": 30395.75}
+{"slot": "indices", "ticker": "MYM1!", "grade": "A+", "time": "2026-10-02 08:37", "action": "buy", "orderType": "limit", "quantity": 3, "limitPrice": 51583.0, "stopLoss": 51495.0, "takeProfit": 51759.0}
+{"slot": "indices", "ticker": "MYM1!", "grade": "A+", "time": "2026-10-02 08:46", "action": "exit", "quantity": 1, "note": "+1R: close half"}
+{"slot": "indices", "ticker": "MYM1!", "grade": "A+", "time": "2026-10-02 08:46", "action": "move_stop", "stopLoss": 51583.0, "note": "stop to entry"}
+{"slot": "silver", "ticker": "SIL1!", "grade": "A+", "time": "2026-10-02 09:51", "action": "sell", "orderType": "limit", "limitPrice": 61.49, "stopLoss": 61.749999, "takeProfit": 60.970002, "quantity": "15% of balance"}
+{"slot": "silver", "ticker": "SIL1!", "grade": "A+", "time": "2026-10-02 10:01", "action": "cancel", "note": "limit not filled after 10 candles"}
+{"slot": "silver", "ticker": "SIL1!", "grade": "A+", "time": "2026-10-05 08:32", "action": "sell", "orderType": "limit", "limitPrice": 61.86, "stopLoss": 62.034999, "takeProfit": 61.510002, "quantity": "15% of balance"}
+{"slot": "indices", "ticker": "MYM1!", "grade": "A+", "time": "2026-10-05 08:34", "action": "sell", "orderType": "limit", "limitPrice": 51383.0, "stopLoss": 51475.0, "takeProfit": 51199.0, "quantity": "15% of balance"}
+{"slot": "silver", "ticker": "SIL1!", "grade": "A+", "time": "2026-10-05 08:42", "action": "cancel", "note": "limit not filled after 10 candles"}
+{"slot": "indices", "ticker": "MYM1!", "grade": "A+", "time": "2026-10-05 08:44", "action": "cancel", "note": "limit not filled after 10 candles"}
+{"slot": "gold", "ticker": "MGC1!", "grade": "B", "time": "2026-10-05 11:02", "action": "sell", "orderType": "limit", "limitPrice": 4163.8, "stopLoss": 4167.700098, "takeProfit": 4155.999805, "quantity": "15% of balance"}
+{"slot": "gold", "ticker": "MGC1!", "grade": "B", "time": "2026-10-05 11:12", "action": "cancel", "note": "limit not filled after 10 candles"}
+{"slot": "gold", "ticker": "MGC1!", "grade": "A+", "time": "2026-10-05 11:13", "action": "sell", "orderType": "limit", "limitPrice": 4160.3, "stopLoss": 4167.700098, "takeProfit": 4145.499805, "quantity": "15% of balance"}
+{"slot": "gold", "ticker": "MGC1!", "grade": "A+", "time": "2026-10-05 11:23", "action": "cancel", "note": "limit not filled after 10 candles"}
+{"slot": "indices", "ticker": "MNQ1!", "grade": "A+", "time": "2026-10-05 11:25", "action": "buy", "orderType": "limit", "limitPrice": 31225.75, "stopLoss": 31200.0, "takeProfit": 31277.25, "quantity": "15% of balance"}
+{"slot": "indices", "ticker": "MNQ1!", "grade": "A+", "time": "2026-10-05 11:35", "action": "cancel", "note": "limit not filled after 10 candles"}
+{"slot": "indices", "ticker": "MYM1!", "grade": "B", "time": "2026-10-05 12:45", "action": "buy", "orderType": "limit", "limitPrice": 51553.0, "stopLoss": 51528.0, "takeProfit": 51603.0, "quantity": "15% of balance"}
+{"slot": "indices", "ticker": "MYM1!", "grade": "B", "time": "2026-10-05 12:55", "action": "cancel", "note": "limit not filled after 10 candles"}
+{"slot": "indices", "ticker": "MES1!", "grade": "B", "time": "2026-10-05 13:53", "action": "buy", "orderType": "limit", "limitPrice": 7832.75, "stopLoss": 7830.75, "takeProfit": 7836.75, "quantity": "15% of balance"}
+{"slot": "indices", "ticker": "MES1!", "grade": "B", "time": "2026-10-05 14:03", "action": "cancel", "note": "limit not filled after 10 candles"}
+{"slot": "gold", "ticker": "MGC1!", "grade": "B", "time": "2026-10-06 12:06", "action": "buy", "orderType": "limit", "limitPrice": 4186.1, "stopLoss": 4181.299902, "takeProfit": 4195.700195, "quantity": "15% of balance"}
+{"slot": "gold", "ticker": "MGC1!", "grade": "B", "time": "2026-10-06 12:16", "action": "cancel", "note": "limit not filled after 10 candles"}
+{"slot": "indices", "ticker": "MNQ1!", "grade": "A", "time": "2026-10-06 12:57", "action": "sell", "orderType": "limit", "quantity": 4, "limitPrice": 31528.25, "stopLoss": 31546.25, "takeProfit": 31492.25}
+{"slot": "silver", "ticker": "SIL1!", "grade": "B", "time": "2026-10-06 13:39", "action": "buy", "orderType": "limit", "quantity": 4, "limitPrice": 61.83, "stopLoss": 61.794999, "takeProfit": 61.900002}
+{"slot": "silver", "ticker": "SIL1!", "grade": "B", "time": "2026-10-06 13:40", "action": "exit", "quantity": 2, "note": "+1R: close half"}
+{"slot": "silver", "ticker": "SIL1!", "grade": "B", "time": "2026-10-06 13:40", "action": "move_stop", "stopLoss": 61.83, "note": "stop to entry"}
+{"slot": "gold", "ticker": "MGC1!", "grade": "B", "time": "2026-10-06 13:44", "action": "buy", "orderType": "limit", "quantity": 6, "limitPrice": 4197.0, "stopLoss": 4194.199805, "takeProfit": 4202.600391}
+{"slot": "gold", "ticker": "MGC1!", "grade": "B", "time": "2026-10-06 13:48", "action": "exit", "quantity": 3, "note": "+1R: close half"}
+{"slot": "gold", "ticker": "MGC1!", "grade": "B", "time": "2026-10-06 13:48", "action": "move_stop", "stopLoss": 4197.0, "note": "stop to entry"}
+{"slot": "indices", "ticker": "MNQ1!", "grade": "A+", "time": "2026-10-07 08:39", "action": "sell", "orderType": "limit", "limitPrice": 31220.0, "stopLoss": 31276.25, "takeProfit": 31107.5, "quantity": "15% of balance"}
+{"slot": "indices", "ticker": "MNQ1!", "grade": "A+", "time": "2026-10-07 08:49", "action": "cancel", "note": "limit not filled after 10 candles"}
+{"slot": "indices", "ticker": "MES1!", "grade": "B", "time": "2026-10-07 11:08", "action": "buy", "orderType": "limit", "quantity": 8, "limitPrice": 7844.25, "stopLoss": 7837.75, "takeProfit": 7857.25}
+{"slot": "silver", "ticker": "SIL1!", "grade": "A", "time": "2026-10-07 11:56", "action": "buy", "orderType": "limit", "quantity": 3, "limitPrice": 60.105, "stopLoss": 60.039998, "takeProfit": 60.235004}
+{"slot": "indices", "ticker": "MES1!", "grade": "B", "time": "2026-10-07 12:02", "action": "exit", "quantity": 4, "note": "+1R: close half"}
+{"slot": "indices", "ticker": "MES1!", "grade": "B", "time": "2026-10-07 12:02", "action": "move_stop", "stopLoss": 7844.25, "note": "stop to entry"}
+{"slot": "silver", "ticker": "SIL1!", "grade": "A", "time": "2026-10-07 12:02", "action": "exit", "quantity": 1, "note": "+1R: close half"}
+{"slot": "silver", "ticker": "SIL1!", "grade": "A", "time": "2026-10-07 12:02", "action": "move_stop", "stopLoss": 60.105, "note": "stop to entry"}
+{"slot": "gold", "ticker": "MGC1!", "grade": "A+", "time": "2026-10-08 08:33", "action": "buy", "orderType": "limit", "quantity": 5, "limitPrice": 4150.4, "stopLoss": 4144.100195, "takeProfit": 4162.999609}
+{"slot": "gold", "ticker": "MGC1!", "grade": "A+", "time": "2026-10-08 08:51", "action": "exit", "quantity": 2, "note": "+1R: close half"}
+{"slot": "gold", "ticker": "MGC1!", "grade": "A+", "time": "2026-10-08 08:51", "action": "move_stop", "stopLoss": 4150.4, "note": "stop to entry"}
+{"slot": "indices", "ticker": "MES1!", "grade": "A", "time": "2026-10-08 11:10", "action": "buy", "orderType": "limit", "limitPrice": 7823.5, "stopLoss": 7819.75, "takeProfit": 7831.0, "quantity": "15% of balance"}
+{"slot": "indices", "ticker": "MES1!", "grade": "A", "time": "2026-10-08 11:20", "action": "cancel", "note": "limit not filled after 10 candles"}
+{"slot": "indices", "ticker": "MYM1!", "grade": "A+", "time": "2026-10-08 11:42", "action": "buy", "orderType": "limit", "quantity": 20, "limitPrice": 51329.0, "stopLoss": 51296.0, "takeProfit": 51395.0}
+{"slot": "indices", "ticker": "MYM1!", "grade": "A+", "time": "2026-10-08 11:54", "action": "exit", "quantity": 10, "note": "+1R: close half"}
+{"slot": "indices", "ticker": "MYM1!", "grade": "A+", "time": "2026-10-08 11:54", "action": "move_stop", "stopLoss": 51329.0, "note": "stop to entry"}
+{"slot": "indices", "ticker": "MNQ1!", "grade": "A+", "time": "2026-10-09 08:32", "action": "sell", "orderType": "limit", "quantity": 2, "limitPrice": 31153.5, "stopLoss": 31223.5, "takeProfit": 31013.5}
+{"slot": "indices", "ticker": "MNQ1!", "grade": "A+", "time": "2026-10-09 08:37", "action": "exit", "quantity": 1, "note": "+1R: close half"}
+{"slot": "indices", "ticker": "MNQ1!", "grade": "A+", "time": "2026-10-09 08:37", "action": "move_stop", "stopLoss": 31153.5, "note": "stop to entry"}
+{"slot": "gold", "ticker": "MGC1!", "grade": "A+", "time": "2026-10-09 10:47", "action": "sell", "orderType": "limit", "quantity": 14, "limitPrice": 4213.5, "stopLoss": 4216.700098, "takeProfit": 4207.099805}
+{"slot": "silver", "ticker": "SIL1!", "grade": "B", "time": "2026-10-09 12:23", "action": "buy", "orderType": "limit", "quantity": 3, "limitPrice": 61.085, "stopLoss": 60.965001, "takeProfit": 61.324998}
+{"slot": "silver", "ticker": "SIL1!", "grade": "B", "time": "2026-10-09 13:09", "action": "exit", "quantity": 1, "note": "+1R: close half"}
+{"slot": "silver", "ticker": "SIL1!", "grade": "B", "time": "2026-10-09 13:09", "action": "move_stop", "stopLoss": 61.085, "note": "stop to entry"}
+{"slot": "indices", "ticker": "MYM1!", "grade": "A+", "time": "2026-10-12 08:32", "action": "buy", "orderType": "limit", "quantity": 9, "limitPrice": 52006.0, "stopLoss": 51917.0, "takeProfit": 52184.0}
+{"slot": "indices", "ticker": "MYM1!", "grade": "A+", "time": "2026-10-12 09:06", "action": "exit", "quantity": 4, "note": "+1R: close half"}
+{"slot": "indices", "ticker": "MYM1!", "grade": "A+", "time": "2026-10-12 09:06", "action": "move_stop", "stopLoss": 52006.0, "note": "stop to entry"}
+{"slot": "gold", "ticker": "MGC1!", "grade": "A+", "time": "2026-10-12 09:19", "action": "sell", "orderType": "limit", "quantity": 4, "limitPrice": 4188.4, "stopLoss": 4199.200098, "takeProfit": 4166.799805}
+{"slot": "silver", "ticker": "SIL1!", "grade": "A+", "time": "2026-10-12 10:23", "action": "sell", "orderType": "limit", "limitPrice": 60.645, "stopLoss": 60.714999, "takeProfit": 60.505002, "quantity": "15% of balance"}
+{"slot": "silver", "ticker": "SIL1!", "grade": "A+", "time": "2026-10-12 10:33", "action": "cancel", "note": "limit not filled after 10 candles"}
+{"slot": "silver", "ticker": "SIL1!", "grade": "A", "time": "2026-10-12 12:31", "action": "sell", "orderType": "limit", "quantity": 4, "limitPrice": 60.49, "stopLoss": 60.595, "takeProfit": 60.28}
+{"slot": "indices", "ticker": "MYM1!", "grade": "A+", "time": "2026-10-12 15:40", "action": "exit_all", "note": "3:40 PM flat"}
+{"slot": "gold", "ticker": "MGC1!", "grade": "A+", "time": "2026-10-12 15:40", "action": "exit_all", "note": "3:40 PM flat"}
+{"slot": "silver", "ticker": "SIL1!", "grade": "A", "time": "2026-10-12 15:40", "action": "exit_all", "note": "3:40 PM flat"}
+{"slot": "silver", "ticker": "SIL1!", "grade": "A+", "time": "2026-10-13 08:49", "action": "sell", "orderType": "limit", "limitPrice": 60.19, "stopLoss": 60.429999, "takeProfit": 59.710002, "quantity": "15% of balance"}
+{"slot": "silver", "ticker": "SIL1!", "grade": "A+", "time": "2026-10-13 08:59", "action": "cancel", "note": "limit not filled after 10 candles"}
+{"slot": "gold", "ticker": "MGC1!", "grade": "A", "time": "2026-10-13 11:52", "action": "sell", "orderType": "limit", "limitPrice": 4179.2, "stopLoss": 4182.6, "takeProfit": 4172.4, "quantity": "15% of balance"}
+{"slot": "indices", "ticker": "MYM1!", "grade": "A+", "time": "2026-10-13 12:01", "action": "sell", "orderType": "limit", "quantity": 15, "limitPrice": 51910.0, "stopLoss": 51979.0, "takeProfit": 51772.0}
+{"slot": "gold", "ticker": "MGC1!", "grade": "A", "time": "2026-10-13 12:02", "action": "cancel", "note": "limit not filled after 10 candles"}
+{"slot": "indices", "ticker": "MYM1!", "grade": "A+", "time": "2026-10-13 12:50", "action": "exit", "quantity": 7, "note": "+1R: close half"}
+{"slot": "indices", "ticker": "MYM1!", "grade": "A+", "time": "2026-10-13 12:50", "action": "move_stop", "stopLoss": 51910.0, "note": "stop to entry"}
+{"slot": "gold", "ticker": "MGC1!", "grade": "B", "time": "2026-10-13 13:44", "action": "buy", "orderType": "limit", "limitPrice": 4183.5, "stopLoss": 4180.500098, "takeProfit": 4189.499805, "quantity": "15% of balance"}
+{"slot": "gold", "ticker": "MGC1!", "grade": "B", "time": "2026-10-13 13:54", "action": "cancel", "note": "limit not filled after 10 candles"}
+{"slot": "indices", "ticker": "MYM1!", "grade": "A+", "time": "2026-10-14 08:54", "action": "sell", "orderType": "limit", "limitPrice": 52048.0, "stopLoss": 52121.0, "takeProfit": 51902.0, "quantity": "15% of balance"}
+{"slot": "indices", "ticker": "MYM1!", "grade": "A+", "time": "2026-10-14 09:04", "action": "cancel", "note": "limit not filled after 10 candles"}
+{"slot": "indices", "ticker": "MNQ1!", "grade": "A", "time": "2026-10-14 11:12", "action": "sell", "orderType": "limit", "limitPrice": 30297.75, "stopLoss": 30364.25, "takeProfit": 30164.75, "quantity": "15% of balance"}
+{"slot": "indices", "ticker": "MNQ1!", "grade": "A", "time": "2026-10-14 11:22", "action": "cancel", "note": "limit not filled after 10 candles"}
+{"slot": "indices", "ticker": "MNQ1!", "grade": "B", "time": "2026-10-14 13:25", "action": "sell", "orderType": "limit", "quantity": 9, "limitPrice": 30172.5, "stopLoss": 30200.5, "takeProfit": 30116.5}
+{"slot": "indices", "ticker": "MNQ1!", "grade": "B", "time": "2026-10-14 13:32", "action": "exit", "quantity": 4, "note": "+1R: close half"}
+{"slot": "indices", "ticker": "MNQ1!", "grade": "B", "time": "2026-10-14 13:32", "action": "move_stop", "stopLoss": 30172.5, "note": "stop to entry"}
+{"slot": "gold", "ticker": "MGC1!", "grade": "A+", "time": "2026-10-14 13:55", "action": "buy", "orderType": "limit", "quantity": 20, "limitPrice": 4115.9, "stopLoss": 4112.699805, "takeProfit": 4122.300391}
+{"slot": "gold", "ticker": "MGC1!", "grade": "A+", "time": "2026-10-14 14:14", "action": "exit", "quantity": 10, "note": "+1R: close half"}
+{"slot": "gold", "ticker": "MGC1!", "grade": "A+", "time": "2026-10-14 14:14", "action": "move_stop", "stopLoss": 4115.9, "note": "stop to entry"}
+{"slot": "silver", "ticker": "SIL1!", "grade": "A+", "time": "2026-10-15 12:18", "action": "buy", "orderType": "limit", "quantity": 6, "limitPrice": 57.135, "stopLoss": 57.015, "takeProfit": 57.374999}
+{"slot": "silver", "ticker": "SIL1!", "grade": "A+", "time": "2026-10-15 13:01", "action": "exit", "quantity": 3, "note": "+1R: close half"}
+{"slot": "silver", "ticker": "SIL1!", "grade": "A+", "time": "2026-10-15 13:01", "action": "move_stop", "stopLoss": 57.135, "note": "stop to entry"}
+{"slot": "gold", "ticker": "MGC1!", "grade": "A", "time": "2026-10-15 13:05", "action": "buy", "orderType": "limit", "quantity": 26, "limitPrice": 4176.4, "stopLoss": 4172.799902, "takeProfit": 4183.600195}
+{"slot": "gold", "ticker": "MGC1!", "grade": "A", "time": "2026-10-15 14:00", "action": "exit", "quantity": 13, "note": "+1R: close half"}
+{"slot": "gold", "ticker": "MGC1!", "grade": "A", "time": "2026-10-15 14:00", "action": "move_stop", "stopLoss": 4176.4, "note": "stop to entry"}
+{"slot": "indices", "ticker": "MES1!", "grade": "A+", "time": "2026-10-16 09:53", "action": "sell", "orderType": "limit", "limitPrice": 7792.75, "stopLoss": 7796.75, "takeProfit": 7784.75, "quantity": "15% of balance"}
+{"slot": "indices", "ticker": "MES1!", "grade": "A+", "time": "2026-10-16 10:03", "action": "cancel", "note": "limit not filled after 10 candles"}
+{"slot": "indices", "ticker": "MES1!", "grade": "A+", "time": "2026-10-16 10:07", "action": "sell", "orderType": "limit", "limitPrice": 7777.5, "stopLoss": 7796.75, "takeProfit": 7739.0, "quantity": "15% of balance"}
+{"slot": "indices", "ticker": "MES1!", "grade": "A+", "time": "2026-10-16 10:17", "action": "cancel", "note": "limit not filled after 10 candles"}
+{"slot": "indices", "ticker": "MNQ1!", "grade": "B", "time": "2026-10-16 11:02", "action": "sell", "orderType": "limit", "quantity": 5, "limitPrice": 29648.75, "stopLoss": 29754.25, "takeProfit": 29437.75}
+{"slot": "indices", "ticker": "MNQ1!", "grade": "B", "time": "2026-10-16 12:04", "action": "exit", "quantity": 2, "note": "+1R: close half"}
+{"slot": "indices", "ticker": "MNQ1!", "grade": "B", "time": "2026-10-16 12:04", "action": "move_stop", "stopLoss": 29648.75, "note": "stop to entry"}
+{"slot": "silver", "ticker": "SIL1!", "grade": "A", "time": "2026-10-16 12:39", "action": "sell", "orderType": "limit", "quantity": 25, "limitPrice": 57.31, "stopLoss": 57.365001, "takeProfit": 57.199999}
+{"slot": "gold", "ticker": "MGC1!", "grade": "A+", "time": "2026-10-19 08:41", "action": "sell", "orderType": "limit", "limitPrice": 4177.5, "stopLoss": 4186.999902, "takeProfit": 4158.500195, "quantity": "15% of balance"}
+{"slot": "gold", "ticker": "MGC1!", "grade": "A+", "time": "2026-10-19 08:51", "action": "cancel", "note": "limit not filled after 10 candles"}
+{"slot": "indices", "ticker": "MES1!", "grade": "A+", "time": "2026-10-19 09:47", "action": "buy", "orderType": "limit", "quantity": 33, "limitPrice": 7745.75, "stopLoss": 7738.5, "takeProfit": 7760.25}
+{"slot": "indices", "ticker": "MES1!", "grade": "A+", "time": "2026-10-19 10:00", "action": "exit", "quantity": 16, "note": "+1R: close half"}
+{"slot": "indices", "ticker": "MES1!", "grade": "A+", "time": "2026-10-19 10:00", "action": "move_stop", "stopLoss": 7745.75, "note": "stop to entry"}
+{"slot": "gold", "ticker": "MGC1!", "grade": "A", "time": "2026-10-19 13:41", "action": "buy", "orderType": "limit", "quantity": 73, "limitPrice": 4164.4, "stopLoss": 4162.4, "takeProfit": 4168.4}
+{"slot": "gold", "ticker": "MGC1!", "grade": "A", "time": "2026-10-19 13:47", "action": "exit", "quantity": 36, "note": "+1R: close half"}
+{"slot": "gold", "ticker": "MGC1!", "grade": "A", "time": "2026-10-19 13:47", "action": "move_stop", "stopLoss": 4164.4, "note": "stop to entry"}
+{"slot": "silver", "ticker": "SIL1!", "grade": "A", "time": "2026-10-19 13:47", "action": "buy", "orderType": "limit", "quantity": 23, "limitPrice": 57.42, "stopLoss": 57.344998, "takeProfit": 57.570003}
+{"slot": "silver", "ticker": "SIL1!", "grade": "A+", "time": "2026-10-20 09:17", "action": "buy", "orderType": "limit", "quantity": 4, "limitPrice": 57.945, "stopLoss": 57.504998, "takeProfit": 58.825003}
+{"slot": "silver", "ticker": "SIL1!", "grade": "A+", "time": "2026-10-20 09:25", "action": "exit", "quantity": 2, "note": "+1R: close half"}
+{"slot": "silver", "ticker": "SIL1!", "grade": "A+", "time": "2026-10-20 09:25", "action": "move_stop", "stopLoss": 57.945, "note": "stop to entry"}
+{"slot": "indices", "ticker": "MNQ1!", "grade": "B", "time": "2026-10-20 12:13", "action": "buy", "orderType": "limit", "quantity": 24, "limitPrice": 29719.0, "stopLoss": 29689.0, "takeProfit": 29779.0}
+{"slot": "indices", "ticker": "MNQ1!", "grade": "B", "time": "2026-10-20 12:21", "action": "exit", "quantity": 12, "note": "+1R: close half"}
+{"slot": "indices", "ticker": "MNQ1!", "grade": "B", "time": "2026-10-20 12:21", "action": "move_stop", "stopLoss": 29719.0, "note": "stop to entry"}
+{"slot": "indices", "ticker": "MES1!", "grade": "A+", "time": "2026-10-21 09:06", "action": "sell", "orderType": "limit", "limitPrice": 7770.0, "stopLoss": 7781.0, "takeProfit": 7748.0, "quantity": "15% of balance"}
+{"slot": "indices", "ticker": "MES1!", "grade": "A+", "time": "2026-10-21 09:16", "action": "cancel", "note": "limit not filled after 10 candles"}
+{"slot": "gold", "ticker": "MGC1!", "grade": "A+", "time": "2026-10-21 10:24", "action": "buy", "orderType": "limit", "limitPrice": 4149.8, "stopLoss": 4144.4, "takeProfit": 4160.6, "quantity": "15% of balance"}
+{"slot": "silver", "ticker": "SIL1!", "grade": "A+", "time": "2026-10-21 10:24", "action": "buy", "orderType": "limit", "limitPrice": 57.635, "stopLoss": 57.524999, "takeProfit": 57.855002, "quantity": "15% of balance"}
+{"slot": "gold", "ticker": "MGC1!", "grade": "A+", "time": "2026-10-21 10:34", "action": "cancel", "note": "limit not filled after 10 candles"}
+{"slot": "silver", "ticker": "SIL1!", "grade": "A+", "time": "2026-10-21 10:34", "action": "cancel", "note": "limit not filled after 10 candles"}
+{"slot": "gold", "ticker": "MGC1!", "grade": "A+", "time": "2026-10-21 11:17", "action": "buy", "orderType": "limit", "quantity": 59, "limitPrice": 4150.3, "stopLoss": 4147.000098, "takeProfit": 4156.899805}
+{"slot": "silver", "ticker": "SIL1!", "grade": "B", "time": "2026-10-21 11:17", "action": "buy", "orderType": "limit", "quantity": 21, "limitPrice": 57.62, "stopLoss": 57.544999, "takeProfit": 57.770002}
+{"slot": "silver", "ticker": "SIL1!", "grade": "B", "time": "2026-10-21 11:39", "action": "exit", "quantity": 10, "note": "+1R: close half"}
+{"slot": "silver", "ticker": "SIL1!", "grade": "B", "time": "2026-10-21 11:39", "action": "move_stop", "stopLoss": 57.62, "note": "stop to entry"}
+{"slot": "indices", "ticker": "MYM1!", "grade": "A+", "time": "2026-10-22 08:32", "action": "buy", "orderType": "limit", "limitPrice": 52849.0, "stopLoss": 52742.0, "takeProfit": 53063.0, "quantity": "15% of balance"}
+{"slot": "indices", "ticker": "MYM1!", "grade": "A+", "time": "2026-10-22 08:42", "action": "cancel", "note": "limit not filled after 10 candles"}
+{"slot": "indices", "ticker": "MYM1!", "grade": "A+", "time": "2026-10-22 10:57", "action": "buy", "orderType": "limit", "limitPrice": 53002.0, "stopLoss": 52872.0, "takeProfit": 53262.0, "quantity": "15% of balance"}
+{"slot": "indices", "ticker": "MYM1!", "grade": "A+", "time": "2026-10-22 11:07", "action": "cancel", "note": "limit not filled after 10 candles"}
+{"slot": "indices", "ticker": "MYM1!", "grade": "A", "time": "2026-10-22 12:30", "action": "buy", "orderType": "limit", "limitPrice": 52977.0, "stopLoss": 52908.0, "takeProfit": 53115.0, "quantity": "15% of balance"}
+{"slot": "indices", "ticker": "MYM1!", "grade": "A", "time": "2026-10-22 12:40", "action": "cancel", "note": "limit not filled after 10 candles"}
+{"slot": "indices", "ticker": "MYM1!", "grade": "A", "time": "2026-10-22 13:13", "action": "buy", "orderType": "limit", "quantity": 41, "limitPrice": 52974.0, "stopLoss": 52878.0, "takeProfit": 53166.0}
+{"slot": "indices", "ticker": "MYM1!", "grade": "A", "time": "2026-10-22 14:51", "action": "exit", "quantity": 20, "note": "+1R: close half"}
+{"slot": "indices", "ticker": "MYM1!", "grade": "A", "time": "2026-10-22 14:51", "action": "move_stop", "stopLoss": 52974.0, "note": "stop to entry"}
+{"slot": "indices", "ticker": "MYM1!", "grade": "A", "time": "2026-10-22 15:40", "action": "exit_all", "note": "3:40 PM flat"}
+{"slot": "silver", "ticker": "SIL1!", "grade": "A+", "time": "2026-10-23 08:32", "action": "buy", "orderType": "limit", "quantity": 14, "limitPrice": 53.95, "stopLoss": 53.789998, "takeProfit": 54.270004}
+{"slot": "silver", "ticker": "SIL1!", "grade": "A+", "time": "2026-10-23 08:53", "action": "exit", "quantity": 7, "note": "+1R: close half"}
+{"slot": "silver", "ticker": "SIL1!", "grade": "A+", "time": "2026-10-23 08:53", "action": "move_stop", "stopLoss": 53.95, "note": "stop to entry"}
+{"slot": "indices", "ticker": "MES1!", "grade": "B", "time": "2026-10-23 11:50", "action": "sell", "orderType": "limit", "quantity": 179, "limitPrice": 7687.75, "stopLoss": 7690.5, "takeProfit": 7682.25}
+{"slot": "indices", "ticker": "MES1!", "grade": "B", "time": "2026-10-23 11:51", "action": "exit", "quantity": 89, "note": "+1R: close half"}
+{"slot": "indices", "ticker": "MES1!", "grade": "B", "time": "2026-10-23 11:51", "action": "move_stop", "stopLoss": 7687.75, "note": "stop to entry"}
+{"slot": "indices", "ticker": "MNQ1!", "grade": "A+", "time": "2026-10-26 08:58", "action": "sell", "orderType": "limit", "limitPrice": 29253.25, "stopLoss": 29335.0, "takeProfit": 29089.75, "quantity": "15% of balance"}
+{"slot": "indices", "ticker": "MNQ1!", "grade": "A+", "time": "2026-10-26 09:08", "action": "cancel", "note": "limit not filled after 10 candles"}
+{"slot": "indices", "ticker": "MYM1!", "grade": "A+", "time": "2026-10-26 10:51", "action": "sell", "orderType": "limit", "quantity": 78, "limitPrice": 52536.0, "stopLoss": 52617.0, "takeProfit": 52374.0}
+{"slot": "indices", "ticker": "MYM1!", "grade": "A+", "time": "2026-10-26 12:47", "action": "exit", "quantity": 39, "note": "+1R: close half"}
+{"slot": "indices", "ticker": "MYM1!", "grade": "A+", "time": "2026-10-26 12:47", "action": "move_stop", "stopLoss": 52536.0, "note": "stop to entry"}
+{"slot": "silver", "ticker": "SIL1!", "grade": "A", "time": "2026-10-26 12:56", "action": "buy", "orderType": "limit", "quantity": 66, "limitPrice": 54.155, "stopLoss": 54.110002, "takeProfit": 54.244997}
+{"slot": "silver", "ticker": "SIL1!", "grade": "A", "time": "2026-10-26 13:06", "action": "exit", "quantity": 33, "note": "+1R: close half"}
+{"slot": "silver", "ticker": "SIL1!", "grade": "A", "time": "2026-10-26 13:06", "action": "move_stop", "stopLoss": 54.155, "note": "stop to entry"}
+{"slot": "silver", "ticker": "SIL1!", "grade": "A+", "time": "2026-10-27 08:32", "action": "buy", "orderType": "limit", "quantity": 19, "limitPrice": 53.89, "stopLoss": 53.719998, "takeProfit": 54.230003}
+{"slot": "indices", "ticker": "MNQ1!", "grade": "A+", "time": "2026-10-27 08:35", "action": "buy", "orderType": "limit", "quantity": 33, "limitPrice": 29594.25, "stopLoss": 29532.25, "takeProfit": 29718.25}
+{"slot": "silver", "ticker": "SIL1!", "grade": "A+", "time": "2026-10-27 08:36", "action": "exit", "quantity": 9, "note": "+1R: close half"}
+{"slot": "silver", "ticker": "SIL1!", "grade": "A+", "time": "2026-10-27 08:36", "action": "move_stop", "stopLoss": 53.89, "note": "stop to entry"}
+{"slot": "indices", "ticker": "MNQ1!", "grade": "A+", "time": "2026-10-27 08:38", "action": "exit", "quantity": 16, "note": "+1R: close half"}
+{"slot": "indices", "ticker": "MNQ1!", "grade": "A+", "time": "2026-10-27 08:38", "action": "move_stop", "stopLoss": 29594.25, "note": "stop to entry"}
+{"slot": "indices", "ticker": "MNQ1!", "grade": "A+", "time": "2026-10-28 08:38", "action": "sell", "orderType": "limit", "limitPrice": 29909.75, "stopLoss": 29953.0, "takeProfit": 29823.25, "quantity": "15% of balance"}
+{"slot": "indices", "ticker": "MNQ1!", "grade": "A+", "time": "2026-10-28 08:48", "action": "cancel", "note": "limit not filled after 10 candles"}
+{"slot": "indices", "ticker": "MNQ1!", "grade": "A+", "time": "2026-10-28 08:50", "action": "sell", "orderType": "limit", "quantity": 13, "limitPrice": 29810.0, "stopLoss": 29953.0, "takeProfit": 29524.0}
+{"slot": "silver", "ticker": "SIL1!", "grade": "A+", "time": "2026-10-28 10:49", "action": "sell", "orderType": "limit", "limitPrice": 53.715, "stopLoss": 53.799998, "takeProfit": 53.545004, "quantity": "15% of balance"}
+{"slot": "silver", "ticker": "SIL1!", "grade": "A+", "time": "2026-10-28 10:59", "action": "cancel", "note": "limit not filled after 10 candles"}
+{"slot": "silver", "ticker": "SIL1!", "grade": "A+", "time": "2026-10-28 13:05", "action": "sell", "orderType": "limit", "limitPrice": 53.72, "stopLoss": 54.005, "takeProfit": 53.15, "quantity": "15% of balance"}
+{"slot": "silver", "ticker": "SIL1!", "grade": "A+", "time": "2026-10-28 13:15", "action": "cancel", "note": "limit not filled after 10 candles"}
+{"slot": "silver", "ticker": "SIL1!", "grade": "A+", "time": "2026-10-28 13:17", "action": "sell", "orderType": "limit", "quantity": 9, "limitPrice": 53.535, "stopLoss": 54.005, "takeProfit": 52.595}
+{"slot": "indices", "ticker": "MES1!", "grade": "A+", "time": "2026-10-29 09:49", "action": "sell", "orderType": "limit", "quantity": 45, "limitPrice": 7748.0, "stopLoss": 7762.25, "takeProfit": 7719.5}
+{"slot": "silver", "ticker": "SIL1!", "grade": "A+", "time": "2026-10-29 11:59", "action": "buy", "orderType": "limit", "limitPrice": 52.43, "stopLoss": 52.335, "takeProfit": 52.62, "quantity": "15% of balance"}
+{"slot": "silver", "ticker": "SIL1!", "grade": "A+", "time": "2026-10-29 12:09", "action": "cancel", "note": "limit not filled after 10 candles"}
+{"slot": "indices", "ticker": "MNQ1!", "grade": "A+", "time": "2026-10-30 08:32", "action": "sell", "orderType": "limit", "quantity": 36, "limitPrice": 28785.0, "stopLoss": 28821.75, "takeProfit": 28711.5}
+{"slot": "indices", "ticker": "MNQ1!", "grade": "A+", "time": "2026-10-30 08:42", "action": "exit", "quantity": 18, "note": "+1R: close half"}
+{"slot": "indices", "ticker": "MNQ1!", "grade": "A+", "time": "2026-10-30 08:42", "action": "move_stop", "stopLoss": 28785.0, "note": "stop to entry"}

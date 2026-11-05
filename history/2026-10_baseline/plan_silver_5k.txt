@@ -1,0 +1,55 @@
+
+MES bars Sep 29 14:26 - Oct 30 15:59 · groups MES/MNQ/MYM | MGC | SIL · A+,A,B (A/B from 11:00) · 15% risk · 2R · half at 1R, stop to entry
+
+  #  signal (CT)       mkt  gr side       entry       stop     target  result       R  ct      P/L   balance
+  1  Wed Sep 30 08:51 MES  A+ Buy      7756.50    7747.50    7774.50  target   +1.50  16    +1060     6,060
+  2  Thu Oct 01 09:02 MGC  A+ Sell     4191.40    4196.60    4181.00  BE       +0.46  17     +386     6,446
+  3  Thu Oct 01 11:57 MNQ  A  Sell    30581.25   30674.00   30395.75  stop     -1.00   5     -936     5,510
+  4  Fri Oct 02 08:37 MYM  A+ Buy        51583      51495      51759  BE       +0.49  18     +369     5,879
+  5  Tue Oct 06 12:57 MNQ  A  Sell    31528.25   31546.25   31492.25  stop     -1.01  24     -906     4,973
+  6  Tue Oct 06 13:39 SIL  B  Buy        61.83      61.79      61.90  target   +1.52  21    +1094     6,067
+  7  Tue Oct 06 13:44 MGC  B  Buy      4197.00    4194.20    4202.60  target   +1.50  32    +1304     7,372
+  8  Wed Oct 07 11:08 MES  B  Buy      7844.25    7837.75    7857.25  target   +1.51  41    +1964    11,005
+  9  Wed Oct 07 11:56 SIL  A  Buy        60.11      60.04      60.24  target   +1.53  17    +1669     9,041
+ 10  Thu Oct 08 08:33 MGC  A+ Buy      4150.40    4144.10    4163.00  BE       +0.49  26     +774    11,779
+ 11  Thu Oct 08 11:42 MYM  A+ Buy        51329      51296      51395  target   +1.50 107    +2524    14,302
+ 12  Fri Oct 09 08:32 MNQ  A+ Sell    31153.50   31223.50   31013.50  target   +1.53  15    +3201    17,504
+ 13  Fri Oct 09 10:47 MGC  A+ Sell     4213.50    4216.70    4207.10  stop     -1.03  82    -2808    14,696
+ 14  Fri Oct 09 12:23 SIL  B  Buy        61.09      60.97      61.32  BE       +0.48  18    +1013    15,709
+ 15  Mon Oct 12 08:32 MYM  A+ Buy        52006      51917      52184  3:40     +1.12  52    +2523    18,231
+ 16  Mon Oct 12 09:19 MGC  A+ Sell     4188.40    4199.20    4166.80  3:40     +0.19  25     +485    18,716
+ 17  Mon Oct 12 12:31 SIL  A  Sell       60.49      60.60      60.28  3:40     +0.43  26    +1138    19,854
+ 18  Tue Oct 13 12:01 MYM  A+ Sell       51910      51979      51772  BE       +0.49  86    +1355    21,209
+ 19  Wed Oct 14 13:25 MNQ  B  Sell    30172.50   30200.50   30116.50  target   +1.50  56    +4635    25,844
+ 20  Wed Oct 14 13:55 MGC  A+ Buy      4115.90    4112.70    4122.30  target   +1.50 121    +5674    31,518
+ 21  Thu Oct 15 12:18 SIL  A+ Buy        57.13      57.02      57.37  target   +1.51  39    +7032    38,550
+ 22  Thu Oct 15 13:05 MGC  A  Buy      4176.40    4172.80    4183.60  target   +1.50 160    +8442    46,992
+ 23  Fri Oct 16 11:02 MNQ  B  Sell    29648.75   29754.25   29437.75  target   +1.52  33   +10509    57,501
+ 24  Fri Oct 16 12:39 SIL  A  Sell       57.31      57.37      57.20  stop     -1.09 156    -9554    47,947
+ 25  Mon Oct 19 09:47 MES  A+ Buy      7745.75    7738.50    7760.25  target   +1.50 198   +10521    58,468
+ 26  Mon Oct 19 13:41 MGC  A  Buy      4164.40    4162.40    4168.40  target   +1.50 438   +12597    71,065
+ 27  Mon Oct 19 13:47 SIL  A  Buy        57.42      57.34      57.57  stop     -1.07 142   -11536    59,529
+ 28  Tue Oct 20 09:17 SIL  A+ Buy        57.95      57.50      58.83  BE       +0.49  24    +5190    77,855
+ 29  Tue Oct 20 12:13 MNQ  B  Buy     29719.00   29689.00   29779.00  target   +1.50 148   +13136    72,665
+ 30  Wed Oct 21 11:17 MGC  A+ Buy      4150.30    4147.00    4156.90  stop     -1.03 353   -12439    65,416
+ 31  Wed Oct 21 11:17 SIL  B  Buy        57.62      57.54      57.77  target   +1.50 130   +14464    79,880
+ 32  Thu Oct 22 13:13 MYM  A  Buy        52974      52878      53166  3:40     +1.07 249   +12518    92,398
+ 33  Fri Oct 23 08:32 SIL  A+ Buy        53.95      53.79      54.27  BE       +0.48  86    +6558    98,957
+ 34  Fri Oct 23 11:50 MES  B  Sell     7687.75    7690.50    7682.25  target   +1.50 1079   +20923   119,880
+ 35  Mon Oct 26 10:51 MYM  A+ Sell       52536      52617      52374  BE       +0.49 471    +8815   136,155
+ 36  Mon Oct 26 12:56 SIL  A  Buy        54.16      54.11      54.24  BE       +0.44 399    +7460   127,340
+ 37  Tue Oct 27 08:32 SIL  A+ Buy        53.89      53.72      54.23  target   +1.50 120   +30451   166,607
+ 38  Tue Oct 27 08:35 MNQ  A+ Buy     29594.25   29532.25   29718.25  BE       +0.50 201   +12100   178,707
+ 39  Wed Oct 28 08:50 MNQ  A+ Sell    29810.00   29953.00   29524.00  stop     -1.00  79   -22731   128,830
+ 40  Wed Oct 28 13:17 SIL  A+ Sell       53.54      54.01      52.60  stop     -1.01  57   -27146   151,561
+ 41  Thu Oct 29 09:49 MES  A+ Sell     7748.00    7762.25    7719.50  stop     -1.02 271   -19984   108,846
+ 42  Fri Oct 30 08:32 MNQ  A+ Sell    28785.00   28821.75   28711.50  BE       +0.50 222    +7828   116,674
+
+$5,000 -> $116,674 · 42 trades, 33 wins · peak $178,707 · worst drop -39%
+  MES: 5 trades, 4 wins, +14,485
+  MNQ: 9 trades, 6 wins, +26,836
+  MYM: 6 trades, 6 wins, +28,105
+  MGC: 9 trades, 7 wins, +14,415
+  SIL: 13 trades, 10 wins, +27,834
+
+Chart page: /Users/kirtanpatel/Desktop/Apps/mes-backtester/reports/_b4.html

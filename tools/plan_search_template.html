@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Full-Year Plan Search</title>
+<style>
+:root {
+  color-scheme: light;
+  --surface: #fcfcfb; --card: #ffffff; --line: #e4e3df; --grid: #eeede9;
+  --text-primary: #0b0b0b; --text-secondary: #52514e; --text-muted: #7a7974;
+  --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a;
+  --pos: #2a78d6; --neg: #e34948; --mid: #f0efec;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --surface: #1a1a19; --card: #232321; --line: #383835; --grid: #2c2c2a;
+    --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #8f8e86;
+    --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70;
+    --pos: #3987e5; --neg: #e66767; --mid: #383835;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface: #1a1a19; --card: #232321; --line: #383835; --grid: #2c2c2a;
+  --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #8f8e86;
+  --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70;
+  --pos: #3987e5; --neg: #e66767; --mid: #383835;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--surface); color: var(--text-primary);
+  font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
+main { max-width: 1080px; margin: 0 auto; padding: 28px 16px 60px; }
+h1 { font-size: 26px; margin: 0 0 6px; letter-spacing: -0.01em; }
+h2 { font-size: 18px; margin: 36px 0 10px; }
+p, li { color: var(--text-secondary); }
+.lede { font-size: 16px; color: var(--text-primary); max-width: 760px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 20px 0; }
+.tile { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+.tile .k { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
+.tile .v { font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; margin-top: 2px; }
+.tile .s { font-size: 13px; color: var(--text-secondary); }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--text-secondary); margin-bottom: 8px; }
+.legend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+.chart { position: relative; }
+svg { display: block; width: 100%; height: auto; overflow: visible; }
+.axis text { fill: var(--text-muted); font-size: 11px; }
+.tip { position: absolute; pointer-events: none; background: var(--card); border: 1px solid var(--line); border-radius: 8px;
+  padding: 8px 10px; font-size: 12px; color: var(--text-primary); box-shadow: 0 4px 14px rgba(0,0,0,.12); display: none; white-space: nowrap; }
+.tip b { font-variant-numeric: tabular-nums; }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
+th, td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; white-space: normal; }
+th { color: var(--text-muted); font-weight: 500; }
+td.neg { color: var(--neg); } td.pos { color: var(--pos); }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.tabs button { font: inherit; font-size: 13px; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line);
+  background: transparent; color: var(--text-secondary); cursor: pointer; }
+.tabs button[aria-pressed="true"] { background: var(--text-primary); color: var(--surface); border-color: var(--text-primary); }
+.note { font-size: 13px; color: var(--text-muted); }
+ul { padding-left: 20px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Full-year plan search</h1>
+  <p class="lede" id="lede"></p>
+  <div class="tiles" id="tiles"></div>
+
+  <h2>Running total, in R per trade after commission</h2>
+  <div class="card">
+    <div class="legend" id="legend"></div>
+    <div class="chart" id="curve"><div class="tip" id="tip"></div></div>
+    <p class="note">The grey band is the first half (Nov 3 – Apr 30), where the search picked its winner. The white part (May 1 – Nov 2) is the test the search never saw. 1R = the amount risked on a trade.</p>
+  </div>
+
+  <h2>Our plan, month by month</h2>
+  <div class="card"><div class="chart" id="months"><div class="tip" id="tip2"></div></div></div>
+
+  <h2>Why October looked so good</h2>
+  <div class="card" id="why"></div>
+
+  <h2>Every kind of rule, both halves</h2>
+  <p>The median variant's R per trade after commission, for each choice. A real edge would be positive in <em>both</em> halves.</p>
+  <div class="card">
+    <div class="tabs" id="famtabs"></div>
+    <div class="scroll"><table id="fam"></table></div>
+  </div>
+
+  <h2>Top 10 picked on Nov–Apr: how they did after</h2>
+  <div class="card scroll"><table id="picked"></table></div>
+
+  <h2>Top 10 positive in both halves (picked with hindsight)</h2>
+  <p class="note">Chosen after seeing the whole year, out of thousands of variants. The best of thousands of coin flips also looks good, so these aren't a plan to trade.</p>
+  <div class="card scroll"><table id="both"></table></div>
+</main>
+<script>
+const DATA = __DATA__;
+const $ = id => document.getElementById(id);
+const fmtR = v => (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(1) + "R";
+const pct = v => Math.round(v * 100) + "%";
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const O = DATA.ours, H = DATA.held, B = DATA.both;
+
+$("lede").innerHTML = `I tested <b>${DATA.n_variants.toLocaleString()}</b> versions of our plan on a full year of 1-minute data (Nov 3 2025 – Nov 2 2026): which markets share a slot, grades, A/B cutoff, entry window, trades per day, target, and half at +1R. <b>None of them reliably makes money.</b> Our plan made ${fmtR(O.oct)} in October but ${fmtR(O.R - O.oct)} in the other months. Versions picked as best on the first half lost on the second half.`;
+
+const tiles = [
+  ["Our plan, full year", fmtR(O.R), `${O.n} trades · ${pct(O.win)} win · after commission`],
+  ["Our plan, October", fmtR(O.oct), "the month every rule was tuned on"],
+  ["Positive in both halves", pct(DATA.n_both / DATA.n_pool), `${DATA.n_both} of ${DATA.n_pool.toLocaleString()} variants with 40+ trades each half`],
+  ["Median variant, full year", fmtR(DATA.median_R), `${pct(DATA.share_pos)} of variants end above 0`],
+];
+$("tiles").innerHTML = tiles.map(([k, v, s]) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join("");
+
+// ---- running-total chart
+const series = [[O, "--series-1"], [H, "--series-2"]].concat(B ? [[B, "--series-3"]] : []);
+$("legend").innerHTML = series.map(([s, c]) => `<span><i style="background:var(${c})"></i>${s.tag}: ${s.label} (${fmtR(s.R)})</span>`).join("");
+function drawCurve() {
+  const el = $("curve"), W = el.clientWidth, Hh = Math.max(260, Math.min(380, W * 0.45)), m = {l: 44, r: 12, t: 10, b: 26};
+  const t0 = new Date("2025-11-03").getTime(), t1 = new Date("2026-11-03").getTime(), tS = new Date("2026-05-01").getTime();
+  const all = series.flatMap(([s]) => s.curve.map(p => p[1])).concat([0]);
+  const lo = Math.min(...all), hi = Math.max(...all), pad = (hi - lo) * 0.06 || 1;
+  const x = t => m.l + (t - t0) / (t1 - t0) * (W - m.l - m.r), y = v => m.t + (hi + pad - v) / (hi - lo + 2 * pad) * (Hh - m.t - m.b);
+  const ticks = []; for (let v = Math.ceil((lo - pad) / 10) * 10; v <= hi + pad; v += 10) ticks.push(v);
+  const months = []; for (let d = new Date(2025, 10, 1); d < new Date(2026, 10, 2); d.setMonth(d.getMonth() + 1)) months.push(new Date(d));
+  let svg = `<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="Running total R over the year">`;
+  svg += `<rect x="${x(t0)}" y="${m.t}" width="${x(tS) - x(t0)}" height="${Hh - m.t - m.b}" fill="var(--grid)" opacity=".6"/>`;
+  svg += `<g class="axis">` + ticks.map(v => `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}" stroke="${v === 0 ? "var(--text-muted)" : "var(--line)"}" stroke-width="${v === 0 ? 1 : .6}"/><text x="${m.l - 6}" y="${y(v) + 4}" text-anchor="end">${v > 0 ? "+" : ""}${v}R</text>`).join("");
+  svg += months.filter((_, i) => W > 560 || i % 2 === 0).map(d => `<text x="${x(d.getTime())}" y="${Hh - 8}" text-anchor="start">${d.toLocaleString("en", {month: "short"})}</text>`).join("") + `</g>`;
+  for (const [s, c] of series) {
+    const pts = [[t0, 0]].concat(s.curve.map(p => [new Date(p[0].replace(" ", "T")).getTime(), p[1]]));
+    svg += `<path d="${pts.map((p, i) => (i ? "L" : "M") + x(p[0]).toFixed(1) + "," + y(p[1]).toFixed(1)).join("")}" fill="none" stroke="var(${c})" stroke-width="2" stroke-linejoin="round"/>`;
+  }
+  svg += `<line id="xh" y1="${m.t}" y2="${Hh - m.b}" stroke="var(--text-muted)" stroke-width="1" style="display:none"/><rect id="hit" x="${m.l}" y="${m.t}" width="${W - m.l - m.r}" height="${Hh - m.t - m.b}" fill="transparent"/></svg>`;
+  el.querySelector("svg")?.remove(); el.insertAdjacentHTML("afterbegin", svg);
+  const tip = $("tip"), xh = el.querySelector("#xh");
+  el.querySelector("#hit").onmousemove = e => {
+    const r = el.getBoundingClientRect(), px = e.clientX - r.left, t = t0 + (px - m.l) / (W - m.l - m.r) * (t1 - t0);
+    xh.setAttribute("x1", px); xh.setAttribute("x2", px); xh.style.display = "";
+    const rows = series.map(([s, c]) => { let v = 0; for (const p of s.curve) { if (new Date(p[0].replace(" ", "T")).getTime() <= t) v = p[1]; else break; }
+      return `<div><i style="display:inline-block;width:10px;height:3px;background:var(${c});margin-right:6px;vertical-align:middle"></i>${s.tag.split(",")[0]}: <b>${fmtR(v)}</b></div>`; }).join("");
+    tip.innerHTML = `<div style="color:var(--text-muted)">${new Date(t).toLocaleDateString("en", {month: "short", day: "numeric", year: "numeric"})}</div>${rows}`;
+    tip.style.display = "block"; tip.style.left = Math.min(px + 12, W - tip.offsetWidth - 4) + "px"; tip.style.top = "8px";
+  };
+  el.querySelector("#hit").onmouseleave = () => { tip.style.display = "none"; xh.style.display = "none"; };
+}
+
+// ---- monthly bars (diverging: blue up, red down)
+function drawMonths() {
+  const el = $("months"), W = el.clientWidth, Hh = 220, m = {l: 44, r: 8, t: 14, b: 26};
+  const keys = Object.keys(O.monthly), vals = keys.map(k => O.monthly[k]);
+  const lo = Math.min(0, ...vals), hi = Math.max(0, ...vals);
+  const y = v => m.t + (hi - v) / (hi - lo) * (Hh - m.t - m.b), bw = (W - m.l - m.r) / keys.length;
+  let svg = `<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="Our plan R by month"><g class="axis">`;
+  for (let v = Math.ceil(lo / 10) * 10; v <= hi; v += 10) svg += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}" stroke="${v === 0 ? "var(--text-muted)" : "var(--line)"}" stroke-width="${v === 0 ? 1 : .6}"/><text x="${m.l - 6}" y="${y(v) + 4}" text-anchor="end">${v > 0 ? "+" : ""}${v}R</text>`;
+  keys.forEach((k, i) => { const d = new Date(k + "-15"); svg += `<text x="${m.l + i * bw + bw / 2}" y="${Hh - 8}" text-anchor="middle">${d.toLocaleString("en", {month: "short"})}${W < 560 ? "" : " ’" + k.slice(2, 4)}</text>`; });
+  svg += `</g>`;
+  keys.forEach((k, i) => {
+    const v = vals[i], x0 = m.l + i * bw + 3, w = Math.max(4, bw - 6), top = y(Math.max(v, 0)), h = Math.max(1, Math.abs(y(v) - y(0))), rr = Math.min(4, w / 2);
+    const path = v >= 0 ? `M${x0},${top + h}V${top + rr}Q${x0},${top} ${x0 + rr},${top}H${x0 + w - rr}Q${x0 + w},${top} ${x0 + w},${top + rr}V${top + h}Z`
+                        : `M${x0},${top}V${top + h - rr}Q${x0},${top + h} ${x0 + rr},${top + h}H${x0 + w - rr}Q${x0 + w},${top + h} ${x0 + w},${top + h - rr}V${top}Z`;
+    svg += `<path d="${path}" fill="var(${v >= 0 ? "--pos" : "--neg"})" data-k="${k}" data-v="${v}"/><rect x="${m.l + i * bw}" y="${m.t}" width="${bw}" height="${Hh - m.t - m.b}" fill="transparent" data-k="${k}" data-v="${v}"/>`;
+  });
+  el.querySelector("svg")?.remove(); el.insertAdjacentHTML("afterbegin", svg + "</svg>");
+  const tip = $("tip2");
+  el.querySelectorAll("rect[data-k]").forEach(r => {
+    r.onmousemove = e => { const b = el.getBoundingClientRect(); tip.innerHTML = `${new Date(r.dataset.k + "-15").toLocaleString("en", {month: "long", year: "numeric"})}: <b>${fmtR(+r.dataset.v)}</b>`;
+      tip.style.display = "block"; tip.style.left = Math.min(e.clientX - b.left + 12, W - tip.offsetWidth - 4) + "px"; tip.style.top = "6px"; };
+    r.onmouseleave = () => tip.style.display = "none";
+  });
+}
+
+$("why").innerHTML = `<ul>
+<li><b>October is the month the plan was built on.</b> The 15% risk, the shared index slot, A/B only from 11:00, half at +1R and adding silver were all picked Oct 26–30 by looking at October. A plan fitted to a month will look great in that month.</li>
+<li><b>Signals followed through far more often.</b> In October 71% of trades reached +1R and 24% were stopped first. In the other 11 months it was 47% and 49%.</li>
+<li><b>It was the quietest month of the year.</b> Daily ranges were smaller in every market (silver's about 40% smaller than usual), and longs carried it: 27 longs +21R, 15 shorts about 0.</li>
+<li><b>Every market was positive in October.</b> In the other months 4 of the 5 lost.</li>
+<li><b>It's very rare.</b> Drawing 42 random trades from the other months matches October's total only about 3 times in 10,000.</li>
+<li><b>Before October it lost.</b> From $1,000 on Aug 1, the plan was at $207 by Sep 30 (−86% worst drop). See <a href="plan_aug_sep.html" style="color:var(--series-1)">the Aug–Sep trade study</a>.</li>
+</ul>`;
+
+// ---- families
+const FN = {tiers: "Grades", groups: "Markets / slots", target: "Target", half: "Half at +1R", maxday: "Trades a day", end: "Last entry", ab: "A/B from"};
+const nice = (k, n) => k === "end" ? `${Math.floor(n / 60)}:${String(n % 60).padStart(2, "0")}` : k === "ab" ? (+n ? n + ":00" : "any time") : k === "target" ? n + "R" : k === "half" ? (n === "True" ? "yes" : "no") : n;
+const cell = v => `<td class="${v < 0 ? "neg" : "pos"}">${v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(3)}</td>`;
+function fam(k) {
+  $("famtabs").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.k === k));
+  $("fam").innerHTML = `<tr><th>${FN[k]}</th><th>variants</th><th>R/trade Nov–Apr</th><th>R/trade May–Nov</th><th>positive in both</th></tr>` +
+    DATA.families[k].map(r => `<tr><td>${nice(k, r.name)}</td><td>${r.variants}</td>${cell(r.r1)}${cell(r.r2)}<td>${pct(r.both)}</td></tr>`).join("");
+}
+$("famtabs").innerHTML = Object.keys(FN).map(k => `<button data-k="${k}">${FN[k]}</button>`).join("");
+$("famtabs").onclick = e => e.target.dataset.k && fam(e.target.dataset.k);
+fam("tiers");
+
+const rc = v => `<td class="${v < 0 ? "neg" : "pos"}">${fmtR(v)}</td>`;
+const tbl = (id, rows) => $(id).innerHTML = `<tr><th>Variant</th><th>trades</th><th>win</th><th>Nov–Apr</th><th>May–Nov</th><th>full year</th><th>Oct</th><th>+ months</th><th>worst drop</th></tr>` +
+  rows.map(r => `<tr><td>${r.label}</td><td>${r.n}</td><td>${pct(r.win)}</td>${rc(r.R1)}${rc(r.R2)}${rc(r.R)}${rc(r.oct)}<td>${r.pos_months}/${r.months}</td><td>${fmtR(r.dd)}</td></tr>`).join("");
+tbl("picked", DATA.picked); tbl("both", DATA.top_both);
+
+const draw = () => { drawCurve(); drawMonths(); };
+draw(); addEventListener("resize", draw);
+</script>
+</body>
+</html>

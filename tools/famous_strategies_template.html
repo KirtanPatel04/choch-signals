@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Famous Strategies Test</title>
+__STYLE__
+</head>
+<body>
+<main>
+  <h1>Famous strategies vs our plan, full year</h1>
+  <p class="lede">Seven well-known futures strategies, run with their textbook settings (no tuning) on the same year (Nov 3 2025 – Nov 2 2026), on the same 5 markets as our plan. Every trade is 1 contract after commission and slippage. <b>None shows a reliable edge.</b> The ones that end up in dollars got there on a few silver or gold trades, or by simply being long a market that rose this year.</p>
+
+  <h2>Running total, 1 contract a trade ($)</h2>
+  <div class="card">
+    <div class="tabs" id="pick"></div>
+    <div class="chart" id="curve"><div class="tip" id="tip"></div></div>
+    <p class="note">Grey band = first half (Nov–Apr), white = second half (May–Nov). Pick strategies above to compare; our plan is always shown.</p>
+  </div>
+
+  <h2>In dollars (1 contract)</h2>
+  <div class="card scroll"><table id="usd"></table></div>
+  <p class="note">One silver contract moves $1,000 per $1, so silver swings these dollar totals far more than the index micros.</p>
+
+  <h2>Fair test: every market counts the same</h2>
+  <p>Each trade is divided by its market's typical daily range, so a silver trade and an MES trade weigh the same. A real edge would be positive in both halves, in most markets, with a t-score above about 2 (below that, luck explains it).</p>
+  <div class="card scroll"><table id="fair"></table></div>
+
+  <h2>What it means</h2>
+  <div class="card"><ul>
+    <li><b>Our plan, 1 contract:</b> about −$5,200 over the year. October was +$789. Every one of the 5 markets lost.</li>
+    <li><b>ORB 30 + trend</b> and <b>Late-day momentum</b> look positive in dollars, but only because of gold and silver. With every market weighted the same, they're flat (t-score near 0) and they lose in the index markets.</li>
+    <li><b>Overnight drift</b> (buy the index at 3 PM, sell at the next 8:30 open) is the only one positive in all 3 index markets. It's a long-documented effect, but here it's mostly "being long while stocks rose about 9%", and its t-score of 1.4 isn't strong enough to rule out luck.</li>
+    <li><b>Making a strategy fit the past year is easy</b>, and that's exactly what made October look so good. A real edge has to hold up on data it wasn't built on, and nothing here does.</li>
+  </ul></div>
+</main>
+<script>
+const R = __DATA__;
+const $ = id => document.getElementById(id);
+const usd = v => (v < 0 ? "−$" : "+$") + Math.abs(Math.round(v)).toLocaleString();
+const pct = v => Math.round(v * 100) + "%";
+const names = Object.keys(R);
+const COLORS = ["--series-1", "--series-2", "--series-3", "--c4", "--c5", "--c6", "--c7", "--c8"];
+const dark = matchMedia("(prefers-color-scheme: dark)").matches && document.documentElement.dataset.theme !== "light" || document.documentElement.dataset.theme === "dark";
+Object.entries(dark ? {c4: "#c98500", c5: "#d55181", c6: "#008300", c7: "#9085e9", c8: "#e66767"} : {c4: "#eda100", c5: "#e87ba4", c6: "#008300", c7: "#4a3aa7", c8: "#e34948"})
+  .forEach(([k, v]) => document.documentElement.style.setProperty("--" + k, v));
+const col = n => COLORS[names.indexOf(n)];
+let shown = new Set([names[0], "ORB 30 min + 20-day trend", "Late-day momentum"]);
+
+const td = v => `<td class="${v < 0 ? "neg" : "pos"}">${usd(v)}</td>`;
+$("usd").innerHTML = `<tr><th>Strategy</th><th>trades</th><th>win</th><th>Nov–Apr</th><th>May–Nov</th><th>full year</th><th>Oct</th><th>+ months</th><th>worst drop</th></tr>` +
+  names.map(n => { const r = R[n]; return `<tr><td>${n}</td><td>${r.n}</td><td>${pct(r.win)}</td>${td(r.h1)}${td(r.h2)}${td(r.usd)}${td(r.oct)}<td>${r.pos}/${r.months}</td><td>${usd(r.dd)}</td></tr>`; }).join("");
+const tu = v => `<td class="${v < 0 ? "neg" : "pos"}">${v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(1)}</td>`;
+$("fair").innerHTML = `<tr><th>Strategy</th><th>Nov–Apr</th><th>May–Nov</th><th>t-score</th><th>markets positive</th></tr>` +
+  names.map(n => { const r = R[n]; return `<tr><td>${n}</td>${tu(r.u1)}${tu(r.u2)}<td>${r.t >= 0 ? "+" : "−"}${Math.abs(r.t).toFixed(2)}</td><td>${r.mkts_pos}/${r.mkts}</td></tr>`; }).join("");
+
+$("pick").innerHTML = names.map(n => `<button data-n="${n}"><span style="display:inline-block;width:10px;height:3px;background:var(${col(n)});margin-right:6px;vertical-align:middle"></span>${n}</button>`).join("");
+$("pick").onclick = e => { const b = e.target.closest("button"); if (!b || b.dataset.n === names[0]) return;
+  shown.has(b.dataset.n) ? shown.delete(b.dataset.n) : shown.add(b.dataset.n); draw(); };
+
+function draw() {
+  $("pick").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", shown.has(b.dataset.n)));
+  const el = $("curve"), W = el.clientWidth, H = Math.max(260, Math.min(380, W * 0.45)), m = {l: 64, r: 12, t: 10, b: 26};
+  const t0 = +new Date("2025-11-03"), t1 = +new Date("2026-11-03"), tS = +new Date("2026-05-01");
+  const S = names.filter(n => shown.has(n));
+  const vals = S.flatMap(n => R[n].curve.map(p => p[1])).concat([0]);
+  const lo = Math.min(...vals), hi = Math.max(...vals), pad = (hi - lo) * .06 || 1;
+  const x = t => m.l + (t - t0) / (t1 - t0) * (W - m.l - m.r), y = v => m.t + (hi + pad - v) / (hi - lo + 2 * pad) * (H - m.t - m.b);
+  const step = Math.pow(10, Math.floor(Math.log10((hi - lo) / 4 || 1))) * ([1, 2, 5].find(k => (hi - lo) / (Math.pow(10, Math.floor(Math.log10((hi - lo) / 4 || 1))) * k) <= 6) || 10);
+  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Running dollar total per strategy"><rect x="${x(t0)}" y="${m.t}" width="${x(tS) - x(t0)}" height="${H - m.t - m.b}" fill="var(--grid)" opacity=".6"/><g class="axis">`;
+  for (let v = Math.ceil((lo - pad) / step) * step; v <= hi + pad; v += step) svg += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}" stroke="${v === 0 ? "var(--text-muted)" : "var(--line)"}" stroke-width="${v === 0 ? 1 : .6}"/><text x="${m.l - 6}" y="${y(v) + 4}" text-anchor="end">${usd(v)}</text>`;
+  for (let d = new Date(2025, 10, 1), i = 0; d < new Date(2026, 10, 2); d.setMonth(d.getMonth() + 1), i++) if (W > 560 || i % 2 === 0) svg += `<text x="${x(+d)}" y="${H - 8}">${d.toLocaleString("en", {month: "short"})}</text>`;
+  svg += `</g>`;
+  for (const n of S) svg += `<path d="M${x(t0)},${y(0)}` + R[n].curve.map(p => `L${x(+new Date(p[0])).toFixed(1)},${y(p[1]).toFixed(1)}`).join("") + `" fill="none" stroke="var(${col(n)})" stroke-width="${n === names[0] ? 2.5 : 2}" stroke-linejoin="round"/>`;
+  svg += `<line id="xh" y1="${m.t}" y2="${H - m.b}" stroke="var(--text-muted)" style="display:none"/><rect id="hit" x="${m.l}" y="${m.t}" width="${W - m.l - m.r}" height="${H - m.t - m.b}" fill="transparent"/></svg>`;
+  el.querySelector("svg")?.remove(); el.insertAdjacentHTML("afterbegin", svg);
+  const tip = $("tip"), xh = el.querySelector("#xh");
+  el.querySelector("#hit").onmousemove = e => {
+    const b = el.getBoundingClientRect(), px = e.clientX - b.left, t = t0 + (px - m.l) / (W - m.l - m.r) * (t1 - t0);
+    xh.setAttribute("x1", px); xh.setAttribute("x2", px); xh.style.display = "";
+    tip.innerHTML = `<div style="color:var(--text-muted)">${new Date(t).toLocaleDateString("en", {month: "short", day: "numeric", year: "numeric"})}</div>` +
+      S.map(n => { let v = 0; for (const p of R[n].curve) { if (+new Date(p[0]) <= t) v = p[1]; else break; }
+        return `<div><i style="display:inline-block;width:10px;height:3px;background:var(${col(n)});margin-right:6px;vertical-align:middle"></i>${n}: <b>${usd(v)}</b></div>`; }).join("");
+    tip.style.display = "block"; tip.style.left = Math.min(px + 12, W - tip.offsetWidth - 4) + "px"; tip.style.top = "8px";
+  };
+  el.querySelector("#hit").onmouseleave = () => { tip.style.display = "none"; xh.style.display = "none"; };
+}
+draw(); addEventListener("resize", draw);
+</script>
+</body>
+</html>

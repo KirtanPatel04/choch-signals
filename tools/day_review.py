@@ -1,4 +1,4 @@
-"""Review one trading day with the $6,512 plan: every signal on MES, MNQ, MYM and MGC, which ones the plan takes,
+"""Review one trading day with the $6,512 plan: every signal on MES, MNQ, MYM, MGC and SIL, which ones the plan takes,
 and what the day made at 10% of the balance. Opens a 1-minute chart page for each signal.
 
     .venv/bin/python tools/day_review.py                         # today, fresh Yahoo bars, $1,000 balance
@@ -6,7 +6,7 @@ and what the day made at 10% of the balance. Opens a 1-minute chart page for eac
     .venv/bin/python tools/day_review.py --balance 1350           # size from your real balance
 
 The plan (same as tools/account_study.py): MES / MNQ / MYM share one trade a day - the first index signal whose
-limit fills - and gold (MGC) has its own. While a signal's limit is working or its trade is open, later signals in
+limit fills - and gold (MGC) and silver (SIL) each have their own. While a signal's limit is working or its trade is open, later signals in
 the same group are skipped. A fill that is too big for the risk (1 contract > 10%) still ends that group's day.
 Signals that are still working when the data ends are shown as open / waiting. Yahoo bars can lag by a few minutes.
 """
@@ -24,16 +24,16 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import account_study as A                                             # noqa: E402
-from account_study import E, MK, NY, ROOT, chart_time, typical_range  # noqa: E402
+from account_study import E, MK, NY, ROOT, chart_time, scale  # noqa: E402
 
-GROUPS = [("MES", "MNQ", "MYM"), ("MGC",)]
+GROUPS = [("MES", "MNQ", "MYM"), ("MGC",), ("SIL",)]
 
 
 def day_signals(D: dict, day: pd.Timestamp, ab_after: float) -> list[dict]:
     """Every valid signal on `day`, including ones still working at the end of the data."""
-    ref, out = typical_range(D["MES"]), []
+    out = []
     for m, d in D.items():
-        for s in E.find_signals(d, MK[m][0], typical_range(d) / ref, sessions=("NY",), approach=15):
+        for s in E.find_signals(d, MK[m][0], scale(D, m), sessions=("NY",), approach=15):
             mins = s["time"].hour * 60 + s["time"].minute
             if s["time"].date() != day.date() or not NY[0] < mins <= NY[1]:
                 continue
@@ -79,7 +79,7 @@ def take(sigs: list[dict], balance: float, pct: float) -> None:
 
 
 def page(D: dict, sigs: list[dict], day: pd.Timestamp, balance: float, pct: float, out: Path) -> None:
-    ref, setups = typical_range(D["MES"]), []
+    setups = []
     for k, s in enumerate(sigs):
         m, d = s["market"], D[s["market"]]
         tick, pv = MK[m][0], MK[m][1]
@@ -89,7 +89,7 @@ def page(D: dict, sigs: list[dict], day: pd.Timestamp, balance: float, pct: floa
         ext = float(l[j] if side == 1 else h[j])
         lv = E.levels(d)
         w = pd.DatetimeIndex(lv.when)
-        near = lv[(lv.kind == 1) & (w <= d.index[j]) & (d.index[j] - w <= E.LOOK) & ((lv.px - ext).abs() <= typical_range(d) / ref)]
+        near = lv[(lv.kind == 1) & (w <= d.index[j]) & (d.index[j] - w <= E.LOOK) & ((lv.px - ext).abs() <= scale(D, m))]
         res = {"target": "target hit", "stop": "stopped", "closed": "closed 3:40", "no fill": "never filled",
                "open": "still open", "waiting": "limit working"}[s["status"]]
         r = s.get("r")
@@ -107,7 +107,10 @@ def page(D: dict, sigs: list[dict], day: pd.Timestamp, balance: float, pct: floa
             bal=None, pv=pv, tick=tick, dec=0 if tick >= 1 else max(0, min(5, math.ceil(-math.log10(tick)))),
             ext=ext, level=float(near.px.iloc[(near.px - ext).abs().argmin()]) if len(near) else None,
             t_ext=chart_time(d.index[j]), t_choch=chart_time(d.index[i - 1]), t_sig=chart_time(d.index[i]),
-            t_fill=chart_time(s["fill_time"]) if s.get("fill_time") is not None else None, t_exit=chart_time(exit_t)))
+            t_fill=chart_time(s["fill_time"]) if s.get("fill_time") is not None else None, t_exit=chart_time(exit_t),
+            fill_at=f'{s["fill_time"]:%H:%M}' if s.get("fill_time") is not None else None,
+            exit_at=f'{s["exit_time"]:%H:%M}' if s.get("fill_time") is not None and s.get("exit_time") is not None
+            and s["status"] != "open" else None))
     bars = {}
     for m in {x["market"] for x in setups}:
         d = D[m]
@@ -118,7 +121,7 @@ def page(D: dict, sigs: list[dict], day: pd.Timestamp, balance: float, pct: floa
     summ = lambda xs: dict(n=len(xs), wins=int(sum(x["usd"] > 0 for x in xs)), usd=round(sum(x["usd"] for x in xs), 2), days=1 if xs else 0)
     stats = dict(all=summ(taken), first=summ(taken), total_days=1, target_r=E.TARGET_R, risk=f"{pct:.0%} of balance", max_day=2,
                  tiers="A+ any time, A/B from 11:00", markets=f"{day:%a %b %d}: every signal, plan's trades marked",
-                 by_mkt={m: summ([x for x in taken if x["market"] == m]) for m in MK}, start=balance,
+                 by_mkt={m: summ([x for x in taken if x["market"] == m]) for g in GROUPS for m in g}, start=balance,
                  end=round(balance + sum(x["usd"] for x in taken), 2), half=False, span=f"{day:%b %d, %Y}", other="", other_label="",
                  fo_label="only the trades the plan takes", pad=60)
     html = ((Path(__file__).with_name("account_study_template.html")).read_text()
@@ -139,7 +142,7 @@ def main() -> None:
     a = p.parse_args()
 
     day = pd.Timestamp(a.day or pd.Timestamp.now(tz=E.TZ).strftime("%Y-%m-%d"), tz=E.TZ)
-    D = {m: A.load(m, not a.no_refresh) for m in MK}
+    D = {m: A.load(m, not a.no_refresh) for g in GROUPS for m in g}
     D = {m: d[d.index < day + pd.Timedelta(days=1)] for m, d in D.items()}
     sigs = day_signals(D, day, a.ab_after)
     take(sigs, a.balance, a.risk_pct / 100)

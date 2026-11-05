@@ -22,6 +22,14 @@ TARGET_R = 2.0
 EXPIRY = 10          # candles the limit order stays working
 SWEEP = 20           # candles back to find the push into the level
 LOOK = pd.Timedelta(days=3)
+FILL_THROUGH = 0     # ticks price must trade past the limit to count as filled (0 = a touch fills, as tested)
+# Setup options for testing changes to the setup itself; the defaults are the Pine as it is.
+ENTRY_DEPTH = 0.5    # where in the gap the limit sits: 0 = near edge (fills most), 0.5 = middle, 1 = far edge
+STOP_AT = "sweep"    # "sweep" = 1 tick past the push's extreme; "gap" = 1 tick past the gap's far edge
+MIN_DISP = 1.0       # CHoCH candle body vs the 30-candle average range to count at all
+NEAR = 1.0          # how close (MES points, scaled) the push must come to a level
+TREND = True         # only trade with the 15-minute structure
+SAME_BAR_TARGET = True   # count a target hit on the fill candle (its high may have come before the fill); False = strict
 
 # entry windows (minutes after midnight CT, close time of the signal candle) and the time open trades are closed
 SESSIONS = {
@@ -96,7 +104,7 @@ def find_signals(d: pd.DataFrame, tick: float, scale: float = 1.0, sessions=("NY
     lv_px, lv_k, lv_w = lv.px.to_numpy(), lv.kind.to_numpy(), pd.DatetimeIndex(lv.when)
     tr = structure(d).reindex(close_t, method="ffill").fillna(0).to_numpy()
     rng = pd.Series(h - l).rolling(30, min_periods=10).mean().shift(1).to_numpy()
-    near, min_stop = 1.0 * scale, 2.0 * scale
+    near, min_stop = NEAR * scale, 2.0 * scale
     mins = np.asarray(close_t.hour * 60 + close_t.minute)
     out, swh, swl = [], None, None
     for i in range(2, len(d)):
@@ -116,10 +124,10 @@ def find_signals(d: pd.DataFrame, tick: float, scale: float = 1.0, sessions=("NY
             side = -1
         else:
             continue
-        if tr[i] * side <= 0:
+        if TREND and tr[i] * side <= 0:
             continue
         disp = abs(c[j] - o[j]) / rng[i]
-        if disp < 1.0:
+        if disp < MIN_DISP:
             continue
         k = i - SWEEP + (int(np.argmin(l[i - SWEEP:i + 1])) if side == 1 else int(np.argmax(h[i - SWEEP:i + 1])))
         ext, tk = (l[k] if side == 1 else h[k]), idx[k]
@@ -130,9 +138,10 @@ def find_signals(d: pd.DataFrame, tick: float, scale: float = 1.0, sessions=("NY
         m = (lv_w <= tk) & (tk - lv_w <= LOOK) & (np.abs(lv_px - ext) <= near)
         if not (m & (lv_k == 1)).any() or (m & (lv_k == 2)).any():
             continue
-        entry = (l[i] + h[i - 2]) / 2 if side == 1 else (h[i] + l[i - 2]) / 2
+        entry = l[i] - ENTRY_DEPTH * (l[i] - h[i - 2]) if side == 1 else h[i] + ENTRY_DEPTH * (l[i - 2] - h[i])
         entry = np.floor(entry / tick) * tick if side == 1 else np.ceil(entry / tick) * tick
-        risk = max(abs(entry - (ext - side * tick)), min_stop)
+        far = ext if STOP_AT == "sweep" else (h[i - 2] if side == 1 else l[i - 2])
+        risk = max(abs(entry - (far - side * tick)), min_stop)
         stop = entry - side * risk
         sig = dict(time=close_t[i], session=sess, tier="A+" if disp >= 1.5 else "A" if disp >= 1.2 else "B", side=side,
                    entry=float(entry), stop=float(stop), target=float(entry + side * TARGET_R * risk),
@@ -158,7 +167,7 @@ def follow(d: pd.DataFrame, i: int, s: dict, tick: float, sess: dict) -> dict:
         if fill is None:
             if j - i > EXPIRY or ((o[j] <= s["stop"]) if side == 1 else (o[j] >= s["stop"])):
                 return dict(status="no fill", r=None, exit_time=idx[j])
-            if (l[j] <= s["entry"]) if side == 1 else (h[j] >= s["entry"]):
+            if (l[j] <= s["entry"] - FILL_THROUGH * tick) if side == 1 else (h[j] >= s["entry"] + FILL_THROUGH * tick):
                 fill = j
                 e = o[j] if ((o[j] < s["entry"]) if side == 1 else (o[j] > s["entry"])) else s["entry"]
                 r1 = abs(e - s["stop"])
@@ -169,7 +178,7 @@ def follow(d: pd.DataFrame, i: int, s: dict, tick: float, sess: dict) -> dict:
             gap = ((o[j] < st) if side == 1 else (o[j] > st)) and j != fill
             px = (o[j] if gap else st) - side * tick
             return dict(status="stop", r=(px - e) * side / r1, fill_time=idx[fill], exit_time=idx[j])
-        if (h[j] >= tg) if side == 1 else (l[j] <= tg):
+        if (j != fill or SAME_BAR_TARGET) and ((h[j] >= tg) if side == 1 else (l[j] <= tg)):
             return dict(status="target", r=TARGET_R, fill_time=idx[fill], exit_time=idx[j])
     if fill is None:
         return dict(status="waiting", r=None)
